@@ -1,0 +1,31 @@
+nameSize (UINT) / name(string)
+localPosition(float3)
+localScale(float3)
+localRotation(float4)
+<매쉬 부분>
+	meshNameSize(UINT) / meshName(string)	=> 메쉬가 없을 경우 따로 처리하자
+	nVertex (UINT)
+	nameSize (UINT) / name (string)
+	boundingBox (float * 6)
+	positions (float * 3 * nVertex)
+	normals (float * 3 * nVertex)
+	nUV(UINT)
+	UVs (float * 2 * nUV)
+	nSubMesh (UINT)
+	{
+		nSubMeshIndex (UINT) / subMeshIndex (UINT * nSubMeshIndex)    ....( * nSubMesh )
+			<메테리얼 부분>
+			materialNameSize(UINT) / materialName(string)
+			ambient(XMFLOAT4)
+			diffuse(XMFLOAT4)
+			specular(XMFLOAT4) (specular.w = 반짝임계수)
+			emissive(XMFLOAT4)
+	}
+nChildren(UINT)
+{
+	자식오브젝트 재귀
+}
+
+
+메쉬이름을 두번 읽는것을 추후에 수정하자.
+

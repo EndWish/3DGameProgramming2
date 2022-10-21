@@ -2,89 +2,106 @@
 #include "Texture.h"
 #include "Mesh.h"
 
-shared_ptr<Texture> Texture::LoadFromFile(ifstream& _file, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
-	shared_ptr<Texture> pNewTexture = make_shared<Texture>();
-
-	// 텍스쳐 파일 이름 읽기
-	ReadStringBinary(pNewTexture->name, _file);
-	
-	// DDS파일로 부터 텍스쳐 리소스 가져오기
-	pNewTexture->LoadTextureFromDDSFile(_pDevice, _pCommandList, wstring(pNewTexture->name.begin(), pNewTexture->name.end()) );
-	//Mesh::GetShader()->
-
-	return pNewTexture;
-}
-
 Texture::Texture() {
-	textureType = RESOURCE_TEXTURE2DARRAY;
-}
+	textureType = RESOURCE_TEXTURE2D;
+	textureMapType = 0;
 
+	name = L"UNKNOWN";
+	shaderResourceViewDesc = D3D12_SHADER_RESOURCE_VIEW_DESC();
+
+	bufferFormat = DXGI_FORMAT();
+	bufferElement = 0;
+
+	nRootParameterIndex = -1;
+	srvGpuDescriptorHandle = D3D12_GPU_DESCRIPTOR_HANDLE();
+	srvGpuDescriptorHandle.ptr = -1;
+}
 Texture::~Texture() {
 
 }
 
 // get, set함수
-
-void Texture::LoadTextureFromDDSFile(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const wstring _fileName) {
-	textureBuffer = CreateTextureResourceFromDDSFile(_pDevice, _pCommandList,L"Textures/" + _fileName, textureUploadBuffer, D3D12_RESOURCE_STATE_GENERIC_READ/*D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE*/);
-	SetShaderResourceViewDesc();
-
-	//if (textureBuffer && !srvGpuDescriptorHandles.ptr) {
-	//	_pDevice->CreateShaderResourceView(textureBuffer.Get(), &shaderResourceViewDesc, m_d3dSrvCPUDescriptorNextHandle);
-	//	m_d3dSrvCPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize;
-
-	//	pTexture->SetGpuDescriptorHandle(nIndex, m_d3dSrvGPUDescriptorNextHandle);
-	//	m_d3dSrvGPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize;
-	//}
+const wstring& Texture::GetName() const {
+	return name;
 }
+ComPtr<ID3D12Resource> Texture::GetResource() {
+	return pTextureBuffer;
+}
+D3D12_GPU_DESCRIPTOR_HANDLE Texture::GetGpuDescriptorHandle() { 
+	return srvGpuDescriptorHandle;
+}
+int Texture::GetRootParameter() { 
+	return nRootParameterIndex; 
+}
+UINT Texture::GetTextureType() { 
+	return textureType; 
+}
+UINT Texture::GetTexturesMapType() { 
+	return textureMapType; 
+}
+DXGI_FORMAT Texture::GetBufferFormat() { 
+	return bufferFormat; 
+}
+int Texture::GetBufferElements() { 
+	return bufferElement; 
+}
+D3D12_SHADER_RESOURCE_VIEW_DESC Texture::GetShaderResourceViewDesc() {
+	D3D12_RESOURCE_DESC d3dResourceDesc = pTextureBuffer->GetDesc();
 
-void Texture::SetShaderResourceViewDesc() {
-	D3D12_RESOURCE_DESC d3dResourceDesc = textureBuffer->GetDesc();
-
-	shaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	D3D12_SHADER_RESOURCE_VIEW_DESC d3dShaderResourceViewDesc;
+	d3dShaderResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
 	switch (textureType) {
 	case RESOURCE_TEXTURE2D: //(d3dResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)(d3dResourceDesc.DepthOrArraySize == 1)
 	case RESOURCE_TEXTURE2D_ARRAY: //[]
-		shaderResourceViewDesc.Format = d3dResourceDesc.Format;
-		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		shaderResourceViewDesc.Texture2D.MipLevels = -1;
-		shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
-		shaderResourceViewDesc.Texture2D.PlaneSlice = 0;
-		shaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+		d3dShaderResourceViewDesc.Format = d3dResourceDesc.Format;
+		d3dShaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		d3dShaderResourceViewDesc.Texture2D.MipLevels = -1;
+		d3dShaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+		d3dShaderResourceViewDesc.Texture2D.PlaneSlice = 0;
+		d3dShaderResourceViewDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 		break;
 	case RESOURCE_TEXTURE2DARRAY: //(d3dResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)(d3dResourceDesc.DepthOrArraySize != 1)
-		shaderResourceViewDesc.Format = d3dResourceDesc.Format;
-		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-		shaderResourceViewDesc.Texture2DArray.MipLevels = -1;
-		shaderResourceViewDesc.Texture2DArray.MostDetailedMip = 0;
-		shaderResourceViewDesc.Texture2DArray.PlaneSlice = 0;
-		shaderResourceViewDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
-		shaderResourceViewDesc.Texture2DArray.FirstArraySlice = 0;
-		shaderResourceViewDesc.Texture2DArray.ArraySize = d3dResourceDesc.DepthOrArraySize;
+		d3dShaderResourceViewDesc.Format = d3dResourceDesc.Format;
+		d3dShaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+		d3dShaderResourceViewDesc.Texture2DArray.MipLevels = -1;
+		d3dShaderResourceViewDesc.Texture2DArray.MostDetailedMip = 0;
+		d3dShaderResourceViewDesc.Texture2DArray.PlaneSlice = 0;
+		d3dShaderResourceViewDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
+		d3dShaderResourceViewDesc.Texture2DArray.FirstArraySlice = 0;
+		d3dShaderResourceViewDesc.Texture2DArray.ArraySize = d3dResourceDesc.DepthOrArraySize;
 		break;
 	case RESOURCE_TEXTURE_CUBE: //(d3dResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D)(d3dResourceDesc.DepthOrArraySize == 6)
-		shaderResourceViewDesc.Format = d3dResourceDesc.Format;
-		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-		shaderResourceViewDesc.TextureCube.MipLevels = 1;
-		shaderResourceViewDesc.TextureCube.MostDetailedMip = 0;
-		shaderResourceViewDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+		d3dShaderResourceViewDesc.Format = d3dResourceDesc.Format;
+		d3dShaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+		d3dShaderResourceViewDesc.TextureCube.MipLevels = 1;
+		d3dShaderResourceViewDesc.TextureCube.MostDetailedMip = 0;
+		d3dShaderResourceViewDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 		break;
 	case RESOURCE_BUFFER: //(d3dResourceDesc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
-		shaderResourceViewDesc.Format = bufferFormat;
-		shaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		shaderResourceViewDesc.Buffer.FirstElement = 0;
-		shaderResourceViewDesc.Buffer.NumElements = bufferElement;
-		shaderResourceViewDesc.Buffer.StructureByteStride = 0;
-		shaderResourceViewDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		d3dShaderResourceViewDesc.Format = bufferFormat;
+		d3dShaderResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		d3dShaderResourceViewDesc.Buffer.FirstElement = 0;
+		d3dShaderResourceViewDesc.Buffer.NumElements = bufferElement;
+		d3dShaderResourceViewDesc.Buffer.StructureByteStride = 0;
+		d3dShaderResourceViewDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 		break;
 	}
+	return(d3dShaderResourceViewDesc);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-///	CTexture
+void Texture::SetRootParameterIndex(UINT _nRootParameterIndex) {
+	nRootParameterIndex = _nRootParameterIndex;
+}
+void Texture::SetGpuDescriptorHandle(D3D12_GPU_DESCRIPTOR_HANDLE _srvGpuDescriptorHandle) {
+	srvGpuDescriptorHandle = _srvGpuDescriptorHandle;
+}
 
-CTexture::CTexture() {
+
+/////////////////////////////////////////////////////////////////////////////////////
+///	TextureBundle
+
+TextureBundle::TextureBundle() {
 	textureType = RESOURCE_TEXTURE2D;
 	texturesMapType = 0;
 
@@ -94,11 +111,18 @@ CTexture::CTexture() {
 	for (int& rootParameterIndice : m_pnRootParameterIndices)
 		rootParameterIndice = -1;
 
+	m_d3dSrvCPUDescriptorStartHandle = D3D12_CPU_DESCRIPTOR_HANDLE();
+	m_d3dSrvGPUDescriptorStartHandle = D3D12_GPU_DESCRIPTOR_HANDLE();
+
+	m_d3dSrvCPUDescriptorNextHandle = D3D12_CPU_DESCRIPTOR_HANDLE();
+	m_d3dSrvGPUDescriptorNextHandle = D3D12_GPU_DESCRIPTOR_HANDLE();
+
 	m_nSamplers = 0;
 }
 
-CTexture::CTexture(UINT _textureType, int nSamplers) {
+TextureBundle::TextureBundle(UINT _textureType, int nSamplers) {
 	textureType = _textureType;
+	texturesMapType = 0;
 
 	for (auto& srvGpuDescriptorHandle : m_pd3dSrvGpuDescriptorHandles)
 		srvGpuDescriptorHandle.ptr = NULL;
@@ -111,23 +135,23 @@ CTexture::CTexture(UINT _textureType, int nSamplers) {
 		m_pd3dSamplerGpuDescriptorHandles.assign(m_nSamplers, {});
 }
 
-CTexture::~CTexture() {
+TextureBundle::~TextureBundle() {
 	
 }
 
-void CTexture::SetRootParameterIndex(int nIndex, UINT nRootParameterIndex) {
+void TextureBundle::SetRootParameterIndex(int nIndex, UINT nRootParameterIndex) {
 	m_pnRootParameterIndices[nIndex] = nRootParameterIndex;
 }
 
-void CTexture::SetGpuDescriptorHandle(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSrvGpuDescriptorHandle) {
+void TextureBundle::SetGpuDescriptorHandle(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSrvGpuDescriptorHandle) {
 	m_pd3dSrvGpuDescriptorHandles[nIndex] = d3dSrvGpuDescriptorHandle;
 }
 
-void CTexture::SetSampler(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSamplerGpuDescriptorHandle) {
+void TextureBundle::SetSampler(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSamplerGpuDescriptorHandle) {
 	m_pd3dSamplerGpuDescriptorHandles[nIndex] = d3dSamplerGpuDescriptorHandle;
 }
 
-void CTexture::UpdateShaderVariables(const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList) {
+void TextureBundle::UpdateShaderVariables(const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList) {
 	//[주의] : 쉐이더에 있는 것을 텍스쳐에 옮겨놨다.
 	if (m_pd3dCbvSrvDescriptorHeap) {
 		pd3dCommandList->SetDescriptorHeaps(1, m_pd3dCbvSrvDescriptorHeap.GetAddressOf());	// ???
@@ -140,14 +164,14 @@ void CTexture::UpdateShaderVariables(const ComPtr<ID3D12GraphicsCommandList>& pd
 	}
 }
 
-void CTexture::LoadTextureFromDDSFile(const ComPtr<ID3D12Device>& pd3dDevice, const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList, const wstring& _fileName, UINT nResourceType, UINT nIndex) {
+void TextureBundle::LoadTextureFromDDSFile(const ComPtr<ID3D12Device>& pd3dDevice, const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList, const wstring& _fileName, UINT nResourceType, UINT nIndex) {
 	m_pnResourceTypes[nIndex] = nResourceType;
 	pTextureBuffers[nIndex] = ::CreateTextureResourceFromDDSFile(pd3dDevice, pd3dCommandList, L"Textures/" + _fileName, pTextureUploadBuffers[nIndex], D3D12_RESOURCE_STATE_GENERIC_READ/*D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE*/);
 	// [주의] : &pTextureUploadBuffers[nIndex] 를 pTextureUploadBuffers[nIndex]로 수정
 	// TextureManager에서 가져오는 걸로 바꾸자.
 }
 
-void CTexture::LoadTextureFromFile(const ComPtr<ID3D12Device>& pd3dDevice, const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList, ifstream& _file) {
+void TextureBundle::LoadTextureFromFile(const ComPtr<ID3D12Device>& pd3dDevice, const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList, ifstream& _file) {
 	for (int i = 0; i < TEXTURETYPENUM; ++i) {
 		string testureNameBuffer;
 		ReadStringBinary(testureNameBuffer, _file);	// 텍스쳐 파일의 이름을 읽는다.
@@ -164,7 +188,7 @@ void CTexture::LoadTextureFromFile(const ComPtr<ID3D12Device>& pd3dDevice, const
 	}
 }
 
-void CTexture::LoadTextureFromDirect(const ComPtr<ID3D12Device>& pd3dDevice, const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList, int textureIndex, const string& _texturefileName) {
+void TextureBundle::LoadTextureFromDirect(const ComPtr<ID3D12Device>& pd3dDevice, const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList, int textureIndex, const string& _texturefileName) {
 	texturesName[textureIndex].assign(_texturefileName.begin(), _texturefileName.end());	// 이름 저장
 
 	// [수정요구] 메쉬에서 텍스쳐를 미리 만들어 같은 텍스쳐를 공유하도록 만들자.
@@ -175,7 +199,7 @@ void CTexture::LoadTextureFromDirect(const ComPtr<ID3D12Device>& pd3dDevice, con
 	texturesMapType = texturesMapType | (1 << textureIndex);
 }
 
-void CTexture::CreateCbvSrvDescriptorHeaps(const ComPtr<ID3D12Device>& _pDevice) {
+void TextureBundle::CreateCbvSrvDescriptorHeaps(const ComPtr<ID3D12Device>& _pDevice) {
 	D3D12_DESCRIPTOR_HEAP_DESC d3dDescriptorHeapDesc;
 	d3dDescriptorHeapDesc.NumDescriptors = 7; // SRVs 
 	d3dDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -190,7 +214,7 @@ void CTexture::CreateCbvSrvDescriptorHeaps(const ComPtr<ID3D12Device>& _pDevice)
 	m_d3dSrvGPUDescriptorNextHandle = m_d3dSrvGPUDescriptorStartHandle;
 }
 
-void CTexture::CreateShaderResourceView(const ComPtr<ID3D12Device>& _pDevice, int nIndex) {
+void TextureBundle::CreateShaderResourceView(const ComPtr<ID3D12Device>& _pDevice, int nIndex) {
 	if (pTextureBuffers[nIndex] && !m_pd3dSrvGpuDescriptorHandles[nIndex].ptr) {
 		D3D12_SHADER_RESOURCE_VIEW_DESC d3dShaderResourceViewDesc = GetShaderResourceViewDesc(nIndex);
 		_pDevice->CreateShaderResourceView(pTextureBuffers[nIndex].Get(), &d3dShaderResourceViewDesc, m_d3dSrvCPUDescriptorNextHandle);
@@ -201,7 +225,7 @@ void CTexture::CreateShaderResourceView(const ComPtr<ID3D12Device>& _pDevice, in
 	}
 }
 
-D3D12_SHADER_RESOURCE_VIEW_DESC CTexture::GetShaderResourceViewDesc(int nIndex) {
+D3D12_SHADER_RESOURCE_VIEW_DESC TextureBundle::GetShaderResourceViewDesc(int nIndex) {
 	D3D12_RESOURCE_DESC d3dResourceDesc = pTextureBuffers[nIndex]->GetDesc();
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC d3dShaderResourceViewDesc;

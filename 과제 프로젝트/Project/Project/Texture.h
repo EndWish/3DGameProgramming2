@@ -27,86 +27,72 @@ class Shader;
 
 class Texture {
 public:
-	static shared_ptr<Texture> LoadFromFile(ifstream& _file, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
-
-public:
 	Texture();
 	virtual ~Texture();
 
 private:
-	UINT textureType;
+	UINT textureType;		// 예) RESOURCE_TEXTURE2D
+	UINT textureMapType;	// 예) MATERIAL_ALBEDO_MAP
 
-	string name;
-	ComPtr<ID3D12Resource> textureBuffer;
-	ComPtr<ID3D12Resource> textureUploadBuffer;
+	wstring name;
+	ComPtr<ID3D12Resource> pTextureBuffer;
+	ComPtr<ID3D12Resource> pTextureUploadBuffer;
 	D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
-
-	//UINT* m_pnResourceTypes = NULL;
 
 	DXGI_FORMAT bufferFormat;
 	int bufferElement;
 
-	//int m_nRootParameters = 0;
-	//int m_pnRootParameterIndices = NULL;
-	D3D12_GPU_DESCRIPTOR_HANDLE srvGpuDescriptorHandles;
-
-	//int								m_nSamplers = 0;
-	//D3D12_GPU_DESCRIPTOR_HANDLE* m_pd3dSamplerGpuDescriptorHandles = NULL;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE			m_d3dCbvCPUDescriptorStartHandle;
-	D3D12_GPU_DESCRIPTOR_HANDLE			m_d3dCbvGPUDescriptorStartHandle;
-	D3D12_CPU_DESCRIPTOR_HANDLE			m_d3dSrvCPUDescriptorStartHandle;
-	D3D12_GPU_DESCRIPTOR_HANDLE			m_d3dSrvGPUDescriptorStartHandle;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE			m_d3dSrvCPUDescriptorNextHandle;
-	D3D12_GPU_DESCRIPTOR_HANDLE			m_d3dSrvGPUDescriptorNextHandle;
+	int nRootParameterIndex;
+	D3D12_GPU_DESCRIPTOR_HANDLE srvGpuDescriptorHandle;
 
 public:
+	// get set 함수
+	const wstring& GetName() const;
+	ComPtr<ID3D12Resource> GetResource();
+	D3D12_GPU_DESCRIPTOR_HANDLE GetGpuDescriptorHandle();
+	int GetRootParameter();
+	UINT GetTextureType();
+	UINT GetTexturesMapType();
+	DXGI_FORMAT GetBufferFormat();
+	int GetBufferElements();
+	D3D12_SHADER_RESOURCE_VIEW_DESC GetShaderResourceViewDesc();
 
-	void LoadTextureFromDDSFile(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const wstring _fileName);
-	void SetShaderResourceViewDesc();
+	void SetRootParameterIndex(UINT _nRootParameterIndex);
+	void SetGpuDescriptorHandle(D3D12_GPU_DESCRIPTOR_HANDLE _srvGpuDescriptorHandle);
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-/// CTexture
+/// TextureBundle TextureBundle
 
-class CTexture {
+class TextureBundle {
 public:
-	CTexture();
-	CTexture(UINT nResourceType, int nSamplers);
-	virtual ~CTexture();
+	TextureBundle();
+	TextureBundle(UINT nResourceType, int nSamplers);
+	virtual ~TextureBundle();
 
 private:
 
 	// int m_nTextures	// 텍스쳐종류의 개수
 
-	UINT textureType;
-	UINT texturesMapType;
+	UINT textureType;		// 예) RESOURCE_TEXTURE2D
+	UINT texturesMapType;	// 예) MATERIAL_ALBEDO_MAP | MATERIAL_SPECULAR_MAP
 
 	array<wstring, TEXTURETYPENUM> texturesName;
 	array<ComPtr<ID3D12Resource>, TEXTURETYPENUM> pTextureBuffers;
 	array<ComPtr<ID3D12Resource>, TEXTURETYPENUM> pTextureUploadBuffers;
 
-	//_TCHAR(*m_ppstrTextureNames)[64] = NULL;
-	//ID3D12Resource** m_ppd3dTextures = NULL;
-	//ID3D12Resource** m_ppd3dTextureUploadBuffers;
-
-	//UINT* m_pnResourceTypes = NULL;
 	array<UINT, TEXTURETYPENUM> m_pnResourceTypes;
 	
-	//DXGI_FORMAT* m_pdxgiBufferFormats = NULL;
 	array<DXGI_FORMAT, TEXTURETYPENUM> m_pdxgiBufferFormats;
 
-	//int* m_pnBufferElements = NULL;
 	array<int, TEXTURETYPENUM> m_pnBufferElements;
 
 	//int	m_nRootParameters = 0;	// 루트 파라미터 개수 == TEXTURETYPENUM 로 설정
-	//int* m_pnRootParameterIndices = NULL;
 	array<int, TEXTURETYPENUM> m_pnRootParameterIndices;
 	array<D3D12_GPU_DESCRIPTOR_HANDLE, TEXTURETYPENUM> m_pd3dSrvGpuDescriptorHandles;
 
 	int	m_nSamplers = 0;
-	//D3D12_GPU_DESCRIPTOR_HANDLE* m_pd3dSamplerGpuDescriptorHandles = NULL;
 	vector<D3D12_GPU_DESCRIPTOR_HANDLE> m_pd3dSamplerGpuDescriptorHandles;
 
 

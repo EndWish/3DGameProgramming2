@@ -16,7 +16,7 @@ public:
 private:
 	string name;
 	ComPtr<ID3D12Resource> pMaterialBuffer;
-	CTexture texture;
+	TextureBundle texture;
 	
 public:
 	Material();
