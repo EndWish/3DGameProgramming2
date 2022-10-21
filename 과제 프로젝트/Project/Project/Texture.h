@@ -27,11 +27,13 @@ class Shader;
 
 class Texture {
 public:
+	static shared_ptr<Texture> Load(const wstring& _fileName, UINT _resourceType, UINT _rootParameterIndex, UINT _textureMapType, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+public:
 	Texture();
 	virtual ~Texture();
 
 private:
-	UINT textureType;		// 예) RESOURCE_TEXTURE2D
+	UINT resourceType;		// 예) RESOURCE_TEXTURE2D
 	UINT textureMapType;	// 예) MATERIAL_ALBEDO_MAP
 
 	wstring name;
@@ -42,24 +44,28 @@ private:
 	DXGI_FORMAT bufferFormat;
 	int bufferElement;
 
-	int nRootParameterIndex;
+	int rootParameterIndex;
 	D3D12_GPU_DESCRIPTOR_HANDLE srvGpuDescriptorHandle;
 
 public:
 	// get set 함수
 	const wstring& GetName() const;
-	ComPtr<ID3D12Resource> GetResource();
-	D3D12_GPU_DESCRIPTOR_HANDLE GetGpuDescriptorHandle();
-	int GetRootParameter();
-	UINT GetTextureType();
-	UINT GetTexturesMapType();
+	ComPtr<ID3D12Resource> GetTextureBuffer();
+	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuDescriptorHandle();
+	int GetRootParameterIndex();
+	UINT GetResourceType();
+	UINT GetTextureMapType();
 	DXGI_FORMAT GetBufferFormat();
 	int GetBufferElements();
 	D3D12_SHADER_RESOURCE_VIEW_DESC GetShaderResourceViewDesc();
 
+	void SetName(const wstring& _name);
+	void SetName(const string& _name);
+	void SetTextureMapType(UINT _textureMapType);
 	void SetRootParameterIndex(UINT _nRootParameterIndex);
 	void SetGpuDescriptorHandle(D3D12_GPU_DESCRIPTOR_HANDLE _srvGpuDescriptorHandle);
 
+	void LoadTextureFromDDSFile(const ComPtr<ID3D12Device>& pDevice, const ComPtr<ID3D12GraphicsCommandList>& pCommandList, const wstring& _fileName, UINT nResourceType);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,26 +81,12 @@ private:
 
 	// int m_nTextures	// 텍스쳐종류의 개수
 
-	UINT textureType;		// 예) RESOURCE_TEXTURE2D
 	UINT texturesMapType;	// 예) MATERIAL_ALBEDO_MAP | MATERIAL_SPECULAR_MAP
 
-	array<wstring, TEXTURETYPENUM> texturesName;
-	array<ComPtr<ID3D12Resource>, TEXTURETYPENUM> pTextureBuffers;
-	array<ComPtr<ID3D12Resource>, TEXTURETYPENUM> pTextureUploadBuffers;
-
-	array<UINT, TEXTURETYPENUM> m_pnResourceTypes;
-	
-	array<DXGI_FORMAT, TEXTURETYPENUM> m_pdxgiBufferFormats;
-
-	array<int, TEXTURETYPENUM> m_pnBufferElements;
-
-	//int	m_nRootParameters = 0;	// 루트 파라미터 개수 == TEXTURETYPENUM 로 설정
-	array<int, TEXTURETYPENUM> m_pnRootParameterIndices;
-	array<D3D12_GPU_DESCRIPTOR_HANDLE, TEXTURETYPENUM> m_pd3dSrvGpuDescriptorHandles;
+	array<shared_ptr<Texture>, TEXTURETYPENUM> pTextures;
 
 	int	m_nSamplers = 0;
 	vector<D3D12_GPU_DESCRIPTOR_HANDLE> m_pd3dSamplerGpuDescriptorHandles;
-
 
 	// 서술자 힙, 테이블을 만들기 위한 변수들
 	ComPtr<ID3D12DescriptorHeap> m_pd3dCbvSrvDescriptorHeap;
@@ -119,21 +111,34 @@ public:
 	void SetRootParameterIndex(int nIndex, UINT nRootParameterIndex);
 	void SetGpuDescriptorHandle(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSrvGpuDescriptorHandle);
 
-	const wstring& GetTextureName(int nIndex) { return(texturesName[nIndex]); }
-	ComPtr<ID3D12Resource> GetResource(int nIndex) { return(pTextureBuffers[nIndex]); }
-	D3D12_GPU_DESCRIPTOR_HANDLE GetGpuDescriptorHandle(int nIndex) { return(m_pd3dSrvGpuDescriptorHandles[nIndex]); }
-	int GetRootParameter(int nIndex) { return(m_pnRootParameterIndices[nIndex]); }
+	const wstring& GetTextureName(int nIndex) { return pTextures[nIndex]->GetName(); }
+	ComPtr<ID3D12Resource> GetTextureBuffer(int nIndex) { return pTextures[nIndex]->GetTextureBuffer(); }
+	D3D12_GPU_DESCRIPTOR_HANDLE GetGpuDescriptorHandle(int nIndex) { return pTextures[nIndex]->GetSrvGpuDescriptorHandle(); }
+	int GetRootParameter(int nIndex) { return pTextures[nIndex]->GetRootParameterIndex(); }
 
-	UINT GetTextureType() { return(textureType); }
-	UINT GetTextureType(int nIndex) { return(m_pnResourceTypes[nIndex]); }
+	UINT GetResourceType(int nIndex) { return pTextures[nIndex]->GetResourceType(); }
 	UINT GetTexturesMapType() { return texturesMapType; }
-	DXGI_FORMAT GetBufferFormat(int nIndex) { return(m_pdxgiBufferFormats[nIndex]); }
-	int GetBufferElements(int nIndex) { return(m_pnBufferElements[nIndex]); }
+	DXGI_FORMAT GetBufferFormat(int nIndex) { return pTextures[nIndex]->GetBufferFormat(); }
+	int GetBufferElements(int nIndex) { return pTextures[nIndex]->GetBufferElements(); }
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC GetShaderResourceViewDesc(int nIndex);
+	D3D12_SHADER_RESOURCE_VIEW_DESC GetShaderResourceViewDesc(int nIndex) { return pTextures[nIndex]->GetShaderResourceViewDesc(); }
 
 	// 리소스뷰, 서술자 힙, 테이블을 만들기 위한 함수
 	void CreateCbvSrvDescriptorHeaps(const ComPtr<ID3D12Device>& _pDevice);
 	void CreateShaderResourceView(const ComPtr<ID3D12Device>& _pDevice, int nIndex);
 
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// TexturePicker
+
+class TexturePicker {
+private:
+	static unordered_map<wstring, shared_ptr<Texture>> storage;
+	static int useCount;
+
+public:
+	static shared_ptr<Texture> GetTexture(const wstring& _fileName, UINT _resourceType, UINT _rootParameterIndex, UINT _textureMapType, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+	static void UseCountUp();	// 사용하기 위해 카운드를 올린다.
+	static void UseCountDown();	// 사용을 다하면 카운드를 내린다. 카운드카 0이 될때 포인터를 모두 없앤다.
 };

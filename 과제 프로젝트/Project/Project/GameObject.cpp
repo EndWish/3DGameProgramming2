@@ -14,7 +14,6 @@ array<XMFLOAT3, 8> GameObject::cube{
 	XMFLOAT3(-0.5f,  +0.5f,  +0.5f),
 	XMFLOAT3(+0.5f,  +0.5f,  +0.5f),
 	XMFLOAT3(+0.5f,  +0.5f,  -0.5f), };
-
 array<UINT, 36> GameObject::cubeIndex{
 	0,3,2, 0,2,1,
 	4,5,6, 4,6,7,
@@ -25,6 +24,7 @@ array<UINT, 36> GameObject::cubeIndex{
 };
 
 shared_ptr<GameObject> GameObject::LoadFromFile(ifstream& _file, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	TexturePicker::UseCountUp();
 
 	// 새로만들 오브젝트의 메모리공간을 할당한다.
 	shared_ptr<GameObject> pNewObject = make_shared<GameObject>();
@@ -50,6 +50,7 @@ shared_ptr<GameObject> GameObject::LoadFromFile(ifstream& _file, const ComPtr<ID
 		pNewObject->pChildren[i] = GameObject::LoadFromFile(_file, _pDevice, _pCommandList);
 	}
 	
+	TexturePicker::UseCountDown();
 	return pNewObject;
 }
 
