@@ -115,10 +115,10 @@ public:
 	~HeightMapImage(void);
 	bool LoadHeightMapFile(const string& _fileName, int _nWidth, int _nLength, const XMFLOAT3 _scale);
 	//높이 맵 이미지에서 (x, z) 위치의 픽셀 값에 기반한 지형의 높이를 반환한다. 
-	float GetHeight(float _terrainX, float _terrainZ);
+	float GetHeight(float _terrainX, float _terrainZ) const;
 
 	//높이 맵 이미지에서 (x, z) 위치의 법선 벡터를 반환한다. 
-	XMFLOAT3 GetNormal(float _terrainX, float _terrainZ);
+	XMFLOAT3 GetNormal(float _terrainX, float _terrainZ) const;
 	int GetWidth() const;
 	int GetLength() const;
 };
@@ -145,14 +145,14 @@ public:
 
 	virtual void CreateVertex(const XMFLOAT3& terrainSize, float _gridWidth, const VS_MaterialMappedFormat& _materialColors, float _detailWidth, const array<string, TEXTURETYPENUM>& _textureFileNames, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
-
+	const HeightMapImage& GetHeightMapImage() const;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// 빌보드 메쉬
 class BillBoardMesh : public Mesh {
 public:
-	static shared_ptr<BillBoardMesh> LoadFromFile(const string& _meshName, const string& _textureFileName, const XMFLOAT2& _size , const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+	static shared_ptr<BillBoardMesh> LoadFromFile(const string& _meshName, const string& _textureFileName, const XMFLOAT2& _center, const XMFLOAT2& _size , const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 
 protected:
 

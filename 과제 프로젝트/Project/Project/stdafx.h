@@ -54,6 +54,7 @@
 #include <stack>
 #include <format>
 #include <fstream>
+#include <random>
 
 #include <algorithm>
 
@@ -80,6 +81,8 @@ std::ostream& operator<<(std::ostream& os, const XMFLOAT4X4& f4x4);
 extern UINT gnRtvDescriptorIncrementSize;
 extern UINT gnDsvDescriptorIncrementSize;
 extern UINT gnCbvSrvDescriptorIncrementSize;
+
+extern random_device rd;
 
 namespace Vector3 {
 

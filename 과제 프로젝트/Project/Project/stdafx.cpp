@@ -8,6 +8,8 @@ UINT gnRtvDescriptorIncrementSize = 0;
 UINT gnDsvDescriptorIncrementSize = 0;
 UINT gnCbvSrvDescriptorIncrementSize = 0;
 
+random_device rd;
+
 void ReadStringBinary(string& _dest, ifstream& _file){
 	int len;
 	_file.read((char*)&len, sizeof(len));

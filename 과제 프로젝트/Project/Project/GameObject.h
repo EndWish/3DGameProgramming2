@@ -75,6 +75,8 @@ public:
 	// 
 	XMFLOAT3 GetCollisionNormal(const shared_ptr<GameObject>& _other);
 
+	// 이름 설정
+	void SetName(const string& _name);
 	// 위치를 강제로 이동시킨다.
 	void SetLocalPosition(const XMFLOAT3& _position);
 	// 특정 회전값을 대입한다.
@@ -124,6 +126,6 @@ public:
 	static void ReleaseObject(const string& _name);
 	static void ReleaseAllObject();
 	static shared_ptr<GameObject> GetGameObject(const string& _name, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
-
+	static bool AddObject(shared_ptr<GameObject> _newObject);
 };
 

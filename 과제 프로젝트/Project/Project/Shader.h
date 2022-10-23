@@ -34,7 +34,7 @@ public:
 
 	D3D12_SHADER_BYTECODE CompileShaderFromFile(const wstring& _fileName, const string& _shaderName, const string& _shaderProfile, ComPtr<ID3DBlob>& _pBlob);
 
-	D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState();
+	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState();
 	virtual D3D12_BLEND_DESC CreateBlendState();
 	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() = 0;
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() = 0;
@@ -76,7 +76,7 @@ public:
 	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() final;
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
 	virtual D3D12_BLEND_DESC CreateBlendState();
-
+	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState();
 };
 
 class HitBoxShader : public Shader  {

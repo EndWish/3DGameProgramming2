@@ -312,7 +312,7 @@ bool HeightMapImage::LoadHeightMapFile(const string& _fileName, int nWidth, int 
 	return true;
 }
 
-float HeightMapImage::GetHeight(float _terrainX, float _terrainZ) {
+float HeightMapImage::GetHeight(float _terrainX, float _terrainZ) const {
 	float imageX = _terrainX / scale.x;
 	float imageZ = _terrainZ / scale.z;
 	imageX = clamp(imageX, 0.f, (float)(width) - 1.01f);
@@ -355,7 +355,7 @@ float HeightMapImage::GetHeight(float _terrainX, float _terrainZ) {
 
 }
 
-XMFLOAT3 HeightMapImage::GetNormal(float _terrainX, float _terrainZ) {
+XMFLOAT3 HeightMapImage::GetNormal(float _terrainX, float _terrainZ) const {
 	float imageX = _terrainX / scale.x;
 	float imageZ = _terrainZ / scale.z;
 	imageX = clamp(imageX, 0.f, (float)(width)-1.01f);
@@ -533,10 +533,14 @@ void TerrainMesh::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList)
 	}
 }
 
+const HeightMapImage& TerrainMesh::GetHeightMapImage() const {
+	return heightMapImage;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// 빌보드 메쉬
 
-shared_ptr<BillBoardMesh> BillBoardMesh::LoadFromFile(const string& _meshName, const string& _textureFileName, const XMFLOAT2& _size, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+shared_ptr<BillBoardMesh> BillBoardMesh::LoadFromFile(const string& _meshName, const string& _textureFileName, const XMFLOAT2& _center, const XMFLOAT2& _size, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 
 	// 메쉬가 존재한다면 공간을 할당하여 데이터를 채우자.
 	shared_ptr<BillBoardMesh> pNewMesh = make_shared<BillBoardMesh>();
@@ -546,7 +550,7 @@ shared_ptr<BillBoardMesh> BillBoardMesh::LoadFromFile(const string& _meshName, c
 	pNewMesh->oobb = BoundingOrientedBox(XMFLOAT3(0,0,0), XMFLOAT3(_size.x / 2.f, _size.y / 2.f, 0), XMFLOAT4A(0.0f, 0.0f, 0.0f, 1.0f));
 
 	// positions를 리소스로 만드는 과정
-	XMFLOAT3 position = XMFLOAT3(0, 0, 0);
+	XMFLOAT3 position = XMFLOAT3(_center.x, _center.y, 0);
 	pNewMesh->pPositionBuffer = CreateBufferResource(_pDevice, _pCommandList, &position, sizeof(XMFLOAT3) * pNewMesh->nVertex, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, pNewMesh->pPositionUploadBuffer);
 	pNewMesh->positionBufferView.BufferLocation = pNewMesh->pPositionBuffer->GetGPUVirtualAddress();
 	pNewMesh->positionBufferView.StrideInBytes = sizeof(XMFLOAT3);

@@ -22,22 +22,32 @@ PlayScene::PlayScene(int _stageNum) {
 	globalAmbient = XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);
 }
 
+void PlayScene::LoadObjects(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	// 건쉽
+	GameObjectManager::LoadFromFile("Gunship", _pDevice, _pCommandList);	
+	
+	// Grass 빌보드 불러오기
+	shared_ptr<BillBoardMesh> billBoardMesh = BillBoardMesh::LoadFromFile("grassMesh", "grass1.dds", XMFLOAT2(0, 10), XMFLOAT2(30, 30), _pDevice, _pCommandList);
+	shared_ptr<GameObject> pGrassObject = make_shared<GameObject>();
+	pGrassObject->Create();
+	pGrassObject->SetMesh(billBoardMesh);
+	pGrassObject->SetName("Grass1");
+	GameObjectManager::AddObject(pGrassObject);
+
+}
+
 void PlayScene::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	GameFramework& gameFramework = GameFramework::Instance();
 
-	GameObjectManager::LoadFromFile("Gunship", _pDevice, _pCommandList);
-	//GameObjectManager::ReleaseObject("Apache");	// 미리 로드를 하지 않고 했을대 날개가 사라짐 -> CommandQueue를 진행시켜야 하지 않을까 싶다.
-	
-	// 카메라 설정
+	LoadObjects(_pDevice, _pCommandList);
 
 	// 플레이어 생성
 	pPlayer = make_shared<Player>();
 	pPlayer->Create();
-	camera = pPlayer->GetCamera();
+	camera = pPlayer->GetCamera();	// 카메라 설정
 
-	// 오브젝트 생성
+	// 지형 생성하기
 	VS_MaterialMappedFormat terrainMaterialColorsBuffer;
-	
 	terrainMaterialColorsBuffer.diffuse = XMFLOAT4(0, 0, 0, 1);
 	terrainMaterialColorsBuffer.specular = XMFLOAT4(0, 0, 0, 1);
 	terrainMaterialColorsBuffer.ambient = XMFLOAT4(0, 0, 0, 1);
@@ -58,11 +68,17 @@ void PlayScene::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12Gr
 	pTerrainObject->Create();
 	pTerrainObject->SetMesh(terrainMesh);
 
-	// 빌보드 
-	shared_ptr<BillBoardMesh> billBoardMesh = BillBoardMesh::LoadFromFile("grassMesh", "grass1.dds", XMFLOAT2(10, 10), _pDevice, _pCommandList);
-	pBillBoardObject = make_shared<GameObject>();
-	pBillBoardObject->Create();
-	pBillBoardObject->SetMesh(billBoardMesh);
+	uniform_real_distribution<float> urd(0, 2000.f);
+	for (int i = 0; i < 10'000; ++i) {
+		shared_ptr<GameObject> newGrass = GameObjectManager::GetGameObject("Grass1", _pDevice, _pCommandList);
+		XMFLOAT3 randomPos = XMFLOAT3(urd(rd), 0, urd(rd));
+		randomPos.y = terrainMesh->GetHeightMapImage().GetHeight(randomPos.x, randomPos.z);
+		newGrass->SetLocalPosition(randomPos);
+		newGrass->UpdateObject();
+
+		//newGrass->SetLocalPosition();
+		pBillBoardObjects.push_back(newGrass);
+	}
 
 	// 조명 버퍼 생성
 	UINT ncbElementBytes = ((sizeof(LightsMappedFormat) + 255) & ~255); //256의 배수
@@ -187,7 +203,8 @@ void PlayScene::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 
 	// 빌보드 그리기
 	Shader::GetBillBoardShader()->PrepareRender(_pCommandList);
-	pBillBoardObject->Render(_pCommandList);
+	for (shared_ptr<GameObject>& pBillBoardObject : pBillBoardObjects)
+		pBillBoardObject->Render(_pCommandList);
 
 	// 히트박스 렌더링
 	//Shader::GetShader()->PrepareRender(_pCommandList);

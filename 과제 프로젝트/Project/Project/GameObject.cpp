@@ -208,6 +208,10 @@ XMFLOAT3 GameObject::GetCollisionNormal(const shared_ptr<GameObject>& _other) {
 	return XMFLOAT3(0, 0, 0);
 }
 
+void GameObject::SetName(const string& _name) {
+	name = _name;
+}
+
 void GameObject::SetLocalPosition(const XMFLOAT3& _position) {
 	localPosition = _position;
 }
@@ -430,4 +434,15 @@ shared_ptr<GameObject> GameObjectManager::GetGameObject(const string& _name, con
 	shared_ptr<GameObject> Object = make_shared<GameObject>();
 	Object->CopyObject(*storage[_name]);
 	return Object;
+}
+
+bool GameObjectManager::AddObject(shared_ptr<GameObject> _newObject) {
+	if (!_newObject)
+		return false;
+
+	if (!storage.contains(_newObject->GetName())) {
+		storage[_newObject->GetName()] = _newObject;
+		return true;
+	}
+	return false;
 }

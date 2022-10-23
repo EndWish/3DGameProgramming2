@@ -26,7 +26,8 @@ class PlayScene : public Scene {
 private:
 	shared_ptr<Player> pPlayer;
 	shared_ptr<GameObject> pTerrainObject;
-	shared_ptr<GameObject> pBillBoardObject;
+	vector<shared_ptr<GameObject>> pEnemyObjets;
+	vector<shared_ptr<GameObject>> pBillBoardObjects;
 	shared_ptr<Light> pSun;
 
 	ComPtr<ID3D12Resource> pLightsBuffer;
@@ -43,6 +44,7 @@ public:
 	~PlayScene() final;
 
 public:
+	void LoadObjects(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	void Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) final;
 	void ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, float _timeElapsed) final;
 	void AnimateObjects(double _timeElapsed) final;
