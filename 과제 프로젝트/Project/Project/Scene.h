@@ -2,7 +2,14 @@
 #include "Player.h"
 #include "Light.h"
 
-#include "Texture.h"
+enum WORLD_OBJ_LAYER {
+	PLAYER,
+	TERRAIN,
+	ENEMY,
+	BILLBOARD,
+
+	NUM
+};
 
 class Scene {
 protected:
@@ -23,11 +30,11 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 /// PlayScene
 class PlayScene : public Scene {
-private:
-	shared_ptr<Player> pPlayer;
-	shared_ptr<GameObject> pTerrainObject;
-	vector<shared_ptr<GameObject>> pEnemyObjets;
-	vector<shared_ptr<GameObject>> pBillBoardObjects;
+protected:
+	
+	array<vector<shared_ptr<GameObject>>, WORLD_OBJ_LAYER::NUM> ppObjects;
+	weak_ptr<Player> wpPlayer;
+
 	shared_ptr<Light> pSun;
 
 	ComPtr<ID3D12Resource> pLightsBuffer;
@@ -54,4 +61,5 @@ public:
 
 	void AddLight(const shared_ptr<Light>& _pLight);
 
+	vector<shared_ptr<GameObject>>& GetObjectsLayered(WORLD_OBJ_LAYER _layer);
 };

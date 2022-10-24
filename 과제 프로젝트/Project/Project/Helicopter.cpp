@@ -3,7 +3,9 @@
 #include "GameFramework.h"
 
 Helicopter::Helicopter() {
-	
+	hSpeed = 100.f;
+	vSpeed = 50.f;
+	rSpeed = 360.f;
 }
 
 Helicopter::~Helicopter() {
@@ -20,7 +22,7 @@ void Helicopter::MoveHorizontal(XMFLOAT3 _dir, float _timeElapsed) {
 	origin.y = 0;
 
 	XMFLOAT3 axis = Vector3::Cross(origin, _dir);
-	float minAngle = Vector3::Angle(origin, _dir);
+	float minAngle = Vector3::Angle(origin, _dir, false);
 	if (abs(axis.y) <= numeric_limits<float>::epsilon()) {	// 외적이 불가능한 경우 (두 벡터가 평행한 경우)
 		axis = XMFLOAT3(0, 1, 0);
 	}
@@ -38,4 +40,18 @@ void Helicopter::MoveVertical(bool _up, float _timeElapsed) {
 	}
 
 	
+}
+
+void Helicopter::Animate(double _timeElapsed) {
+	// 맵 끝과 충돌 체크
+	shared_ptr<GameObject> pRootParent = GetRootParent();
+	XMFLOAT3 localPos = pRootParent->GetLocalPosition();	// 나의 loaclPos == worldPos
+	if (localPos.x < 0.f || 2000.f < localPos.x || localPos.z < 0.f || 2000.f < localPos.z) {
+		localPos.x = clamp(localPos.x, 0.f, 2000.f);
+		localPos.z = clamp(localPos.z, 0.f, 2000.f);
+		pRootParent->SetLocalPosition(localPos);
+		pRootParent->UpdateObject();
+	}
+
+	GameObject::Animate(_timeElapsed);
 }

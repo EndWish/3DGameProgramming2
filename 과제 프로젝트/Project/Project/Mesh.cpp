@@ -5,7 +5,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 /// 메쉬
 shared_ptr<Mesh> Mesh::LoadFromFile(ifstream& _file, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
-
+	
 	// meshNameSize(UINT) / meshName(string) : 메쉬의 이름을 읽어온다.
 	string meshNameBuffer;
 	ReadStringBinary(meshNameBuffer, _file);

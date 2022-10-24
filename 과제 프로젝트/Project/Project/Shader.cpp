@@ -128,9 +128,7 @@ BasicShader::BasicShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D
 	pipelineStateDesc.VS = CompileShaderFromFile(L"Shaders.hlsl", "DefaultVertexShader", "vs_5_1", pVSBlob);
 	pipelineStateDesc.PS = CompileShaderFromFile(L"Shaders.hlsl", "DefaultPixelShader", "ps_5_1", pPSBlob);
 
-	cout << "1";
 	HRESULT hResult = _pDevice->CreateGraphicsPipelineState(&pipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)pPipelineState.GetAddressOf());
-	cout << "2";
 
 	pVSBlob.Reset();
 	pPSBlob.Reset();
@@ -236,8 +234,6 @@ BillBoardShader::BillBoardShader(const ComPtr<ID3D12Device>& _pDevice, const Com
 	pipelineStateDesc.PS = CompileShaderFromFile(L"Shaders.hlsl", "BillBoardPixelShader", "ps_5_1", pPSBlob);
 
 	HRESULT hResult = _pDevice->CreateGraphicsPipelineState(&pipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)pPipelineState.GetAddressOf());
-	if (hResult != S_OK)
-		cout << "hResult : " << hResult << "\n";
 
 	pVSBlob.Reset();
 	pGSBlob.Reset();

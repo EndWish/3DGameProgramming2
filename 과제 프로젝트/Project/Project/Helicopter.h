@@ -3,9 +3,9 @@
 
 class Helicopter : public GameObject {
 protected:
-	float hSpeed = 300.f;
-	float vSpeed = 100.f;
-	float rSpeed = 720.f;
+	float hSpeed;
+	float vSpeed;
+	float rSpeed;
 
 public:
 	Helicopter();
@@ -15,6 +15,6 @@ public:
 
 	virtual void MoveHorizontal(XMFLOAT3 _dir, float _timeElapsed);
 	virtual void MoveVertical(bool _up, float _timeElapsed);
-
+	virtual void Animate(double _timeElapsed);
 };
 

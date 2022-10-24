@@ -3,6 +3,9 @@
 #include "GameFramework.h"
 
 Player::Player() {
+	hSpeed = 300.f;
+	vSpeed = 100.f;
+	rSpeed = 720.f;
 }
 
 Player::~Player() {

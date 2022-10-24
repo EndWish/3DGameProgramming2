@@ -73,16 +73,11 @@ void Camera::UpdateWorldTransform() {
 		GameObject::UpdateWorldTransform();
 	}
 	else if(THIRD) {
-		if (auto pParentLock = pParent.lock()) {	// 부모가 있을 경우
+		if (auto pParentLock = wpParent.lock()) {	// 부모가 있을 경우
 			worldTransform = Matrix4x4::Multiply(localTransform, Matrix4x4::MoveTransform(pParentLock->GetWorldPosition()));
 		}
 		else {	// 부모가 없을 경우
 			worldTransform = localTransform;
-		}
-
-		// 자식들도 worldTransform을 업데이트 시킨다.
-		for (auto& pChild : pChildren) {
-			pChild->UpdateWorldTransform();
 		}
 	}
 	UpdateViewTransform();

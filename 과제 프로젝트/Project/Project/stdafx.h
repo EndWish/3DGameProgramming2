@@ -133,6 +133,16 @@ namespace Vector3 {
 		XMStoreFloat3(&result, XMVector3Length(XMLoadFloat3(&_vector)));
 		return result.x;
 	}
+	inline float Distance2(const XMFLOAT3& _vector1, const  XMFLOAT3& _vector2) {
+		XMFLOAT3 result;
+		XMStoreFloat3(&result, XMVector3LengthSq(XMLoadFloat3(&_vector1) - XMLoadFloat3(&_vector2)));
+		return result.x;
+	}
+	inline float Distance2(const XMFLOAT3& _vector) {
+		XMFLOAT3 result;
+		XMStoreFloat3(&result, XMVector3LengthSq(XMLoadFloat3(&_vector)));
+		return result.x;
+	}
 
 	inline XMFLOAT3 Cross(const XMFLOAT3& _vector1, const XMFLOAT3& _vector2) {
 		XMFLOAT3 result;
@@ -152,13 +162,20 @@ namespace Vector3 {
 		return result.x;
 	}
 
-	inline float Angle(const XMVECTOR& xmvVector1, const XMVECTOR& xmvVector2) {
-		XMVECTOR xmvAngle = XMVector3AngleBetweenNormals(xmvVector1, xmvVector2);
-		return(XMConvertToDegrees(XMVectorGetX(xmvAngle)));
+	inline float Angle(const XMVECTOR& xmvVector1, const XMVECTOR& xmvVector2, bool betweenNormals) {
+		XMVECTOR xmvAngle;
+		if (betweenNormals) {
+			xmvAngle = XMVector3AngleBetweenNormals(xmvVector1, xmvVector2);
+		}
+		else {
+			xmvAngle = XMVector3AngleBetweenNormals(XMVector3Normalize(xmvVector1), XMVector3Normalize(xmvVector2));
+			//xmvAngle = XMVector3AngleBetweenVectors(xmvVector1, xmvVector2);
+		}
+		return XMConvertToDegrees(XMVectorGetX(xmvAngle));
 	}
 
-	inline float Angle(const XMFLOAT3& xmf3Vector1, const XMFLOAT3& xmf3Vector2) {
-		return(Angle(XMLoadFloat3(&xmf3Vector1), XMLoadFloat3(&xmf3Vector2)));
+	inline float Angle(const XMFLOAT3& xmf3Vector1, const XMFLOAT3& xmf3Vector2, bool betweenNormals) {
+		return(Angle(XMLoadFloat3(&xmf3Vector1), XMLoadFloat3(&xmf3Vector2), betweenNormals));
 	}
 
 }

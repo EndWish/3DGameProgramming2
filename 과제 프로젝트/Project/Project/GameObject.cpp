@@ -3,6 +3,14 @@
 #include "Light.h"
 #include "GameFramework.h"
 
+bool IsOOBBTypeFinal(OOBB_TYPE _OOBBType) {
+	return _OOBBType == DISABLED_FINAL || _OOBBType == MESHOOBB_FINAL || _OOBBType == PRIVATEOOBB_FINAL;
+}
+
+bool IsOOBBTypeDisabled(OOBB_TYPE _OOBBType) {
+	return _OOBBType == DISABLED || _OOBBType == DISABLED_FINAL;
+}
+
 //////////////////////////////////////////
 
 array<XMFLOAT3, 8> GameObject::cube{
@@ -40,6 +48,8 @@ shared_ptr<GameObject> GameObject::LoadFromFile(ifstream& _file, const ComPtr<ID
 
 	// 메쉬를 읽어온다.
 	pNewObject->pMesh = BasicMesh::LoadFromFile(_file, _pDevice, _pCommandList);
+	if (pNewObject->pMesh)
+		pNewObject->SetOOBBType(OOBB_TYPE::MESHOOBB);
 
 	//
 	int nChildren;
@@ -62,7 +72,7 @@ GameObject::GameObject() {
 	localRotation = XMFLOAT4(0, 0, 0, 1);
 	localScale = XMFLOAT3(1,1,1);
 	boundingBox = BoundingOrientedBox();
-	isOOBBBCover = false;
+	OOBBType = DISABLED;
 }
 GameObject::~GameObject() {
 
@@ -148,13 +158,14 @@ XMFLOAT3 GameObject::GetWorldPosition() const {
 	return XMFLOAT3(worldTransform._41, worldTransform._42, worldTransform._43);
 }
 
+OOBB_TYPE GameObject::GetOOBBType() const {
+	return OOBBType;
+}
 const BoundingOrientedBox& GameObject::GetBoundingBox() const {
 	return boundingBox;
 }
-
 shared_ptr<GameObject> GameObject::GetChild(const string& _name) const {
 	for (auto pChild : pChildren) {
-		cout << pChild->name << "\n";
 		if (pChild->name == _name)
 			return pChild;
 		else {
@@ -165,47 +176,11 @@ shared_ptr<GameObject> GameObject::GetChild(const string& _name) const {
 	}
 	return nullptr;
 }
-
-XMFLOAT3 GameObject::GetCollisionNormal(const shared_ptr<GameObject>& _other) {
-	XMFLOAT3 toOther = Vector3::Subtract(_other->GetWorldPosition(), GetWorldPosition());
-	float dist = Vector3::Distance(toOther);
-
-	// 삼각형을 변환시킬 행렬을 만든다.
-	XMFLOAT4X4 triangleTransform = Matrix4x4::ScaleTransform(XMFLOAT3(1,1,1));	// S
-	triangleTransform = Matrix4x4::Multiply(triangleTransform, Matrix4x4::ScaleTransform(_other->GetBoundingBox().Extents));	// S
-	triangleTransform = Matrix4x4::Multiply(triangleTransform, Matrix4x4::RotateQuaternion(_other->GetBoundingBox().Orientation));	// R
-	triangleTransform = Matrix4x4::Multiply(triangleTransform, Matrix4x4::MoveTransform(_other->GetWorldPosition())); // T
-
-	for (int i = 0; i < 12; ++i) {
-		// _other의 충돌박스 면의 삼각형을 만든다.
-		array<XMFLOAT3, 3> triangle{ cube[cubeIndex[i * 3]], cube[cubeIndex[i * 3 + 1]], cube[cubeIndex[i * 3 + 2]] };
-		for (XMFLOAT3& point : triangle) {
-			point = Vector3::Transform(point, triangleTransform);
-		}
-		XMFLOAT3 triangleNormal = Vector3::Cross(triangle[0], triangle[1], triangle[2]);
-		// 삼각형과 직선을 내적했을때 음수여야 바라보는 방향이 된다.
-		if (Vector3::Dot(toOther, triangleNormal) < 0) {
-			// 바라보는 면일때 삼각형과 직선이 충돌될 경우 삼각형의 법선벡터를 리턴한다.
-			XMFLOAT3 position = GetWorldPosition();
-			if (TriangleTests::Intersects(XMLoadFloat3(&position),	// 시작점
-				XMLoadFloat3(&toOther),	// 방향
-				XMLoadFloat3(&triangle[0]),	// 삼각형의 각 꼭짓점
-				XMLoadFloat3(&triangle[1]),	// 삼각형의 각 꼭짓점
-				XMLoadFloat3(&triangle[2]),	// 삼각형의 각 꼭짓점
-				dist)) {
-				cout << Vector3::Normalize(triangleNormal) << "\n";
-				return Vector3::Normalize(triangleNormal);
-			}
-			else {
-				cout << "#삼각형과 만나지 않음\n";
-			}
-		}
-		else {
-			cout << "#바라보는 방향이 아님\n";
-		}
-	}
-	cout << "버그\n";
-	return XMFLOAT3(0, 0, 0);
+shared_ptr<GameObject> GameObject::GetRootParent() {
+	shared_ptr<GameObject> pParent = wpParent.lock();
+	if (pParent)	// 부모가 있을 경우
+		return pParent->GetRootParent();
+	return shared_from_this();
 }
 
 void GameObject::SetName(const string& _name) {
@@ -215,11 +190,9 @@ void GameObject::SetName(const string& _name) {
 void GameObject::SetLocalPosition(const XMFLOAT3& _position) {
 	localPosition = _position;
 }
-
 void GameObject::SetLocalRotation(const XMFLOAT4& _rotation) {
 	localRotation = _rotation;
 }
-
 void GameObject::SetLocalScale(const XMFLOAT3& _scale) {
 	localScale = _scale;
 }
@@ -227,7 +200,7 @@ void GameObject::SetLocalScale(const XMFLOAT3& _scale) {
 
 void GameObject::SetChild(const shared_ptr<GameObject> _pChild) {
 	// 입양할 아이가, 부모가 있을 경우 부모로 부터 독립시킨다.
-	if (auto pPreParent = _pChild->pParent.lock()) {
+	if (auto pPreParent = _pChild->wpParent.lock()) {
 		pPreParent->pChildren.erase(ranges::find(pPreParent->pChildren, _pChild));
 	}
 
@@ -235,13 +208,17 @@ void GameObject::SetChild(const shared_ptr<GameObject> _pChild) {
 	pChildren.push_back(_pChild);
 
 	// 자식의 부모를 나로 지정
-	_pChild->pParent = shared_from_this();
+	_pChild->wpParent = shared_from_this();
 }
-
-
-
-void GameObject::SetMesh(const shared_ptr<Mesh>& _pMesh) {
+void GameObject::SetMesh(const shared_ptr<Mesh>& _pMesh, OOBB_TYPE _OOBBType) {
 	pMesh = _pMesh;
+}
+void GameObject::SetPrivateOOBB(const shared_ptr<BoundingOrientedBox>& _pPrivateOOBB, OOBB_TYPE _OOBBType) {
+	pPrivateOOBB = _pPrivateOOBB;
+	OOBBType = _OOBBType;
+}
+void GameObject::SetOOBBType(OOBB_TYPE _OOBBType) {
+	OOBBType = _OOBBType;
 }
 
 void GameObject::UpdateLocalTransform() {
@@ -259,68 +236,90 @@ void GameObject::UpdateLocalTransform() {
 	localTransform._43 = localPosition.z;
 }
 void GameObject::UpdateWorldTransform() {
-	//UpdateLocalTransform();
-
-	if (auto pParentLock = pParent.lock()) {	// 부모가 있을 경우
+	if (auto pParentLock = wpParent.lock()) {	// 부모가 있을 경우
 		worldTransform = Matrix4x4::Multiply(localTransform, pParentLock->worldTransform);
 	}
 	else {	// 부모가 없을 경우
 		worldTransform = localTransform;
 	}
+}
+void GameObject::UpdateWorldTransformAll() {
+	UpdateWorldTransform();
 
 	// 자식들도 worldTransform을 업데이트 시킨다.
 	for (auto& pChild : pChildren) {
-		pChild->UpdateWorldTransform();
+		pChild->UpdateWorldTransformAll();
 	}
 }
-
-
-
 void GameObject::UpdateOOBB() {
-	if (pMesh) {
-		// Mesh의 OOBB를 현재 오브젝트의 transform값으로 변환
-		pMesh->GetOOBB().Transform(boundingBox, XMLoadFloat4x4(&worldTransform));
-		// OOBB의 회전값을 정규화
-		XMStoreFloat4(&boundingBox.Orientation, XMQuaternionNormalize(XMLoadFloat4(&boundingBox.Orientation)));
+	if (OOBBType == MESHOOBB || OOBBType == MESHOOBB_FINAL) {
+		if (pMesh) {
+			// Mesh의 OOBB를 현재 오브젝트의 transform값으로 변환
+			pMesh->GetOOBB().Transform(boundingBox, XMLoadFloat4x4(&worldTransform));
+			// OOBB의 회전값을 정규화
+			//XMStoreFloat4(&boundingBox.Orientation, XMQuaternionNormalize(XMLoadFloat4(&boundingBox.Orientation)));
+		}
+		else {
+			cout << "에러 : 메쉬가 없어서 OOBB를 만들 수 없습니다.\n";
+		}
 	}
-	for (const auto& pChild : pChildren) {
-		pChild->UpdateOOBB();
+	else if (OOBBType == PRIVATEOOBB || OOBBType == PRIVATEOOBB_FINAL || OOBBType == PRIVATEOOBB_COVER) {
+		if (pPrivateOOBB) {
+			pPrivateOOBB->Transform(boundingBox, XMLoadFloat4x4(&worldTransform));
+		}
+		else {
+			cout << "에러 : 전용OOBB가 없는데 OOBB타입이 PRIVATEOOBB류 입니다..\n";
+		}
+	}
+
+}
+void GameObject::UpdateOOBBAll() {
+	UpdateOOBB();
+	if (OOBBType != DISABLED_FINAL && OOBBType != MESHOOBB_FINAL && OOBBType != PRIVATEOOBB_FINAL) {	// FINAL이 아닐경우
+		for (const auto& pChild : pChildren) {
+			pChild->UpdateOOBBAll();
+		}
 	}
 }
-
 void GameObject::UpdateObject() {
 	UpdateLocalTransform();
-	UpdateWorldTransform();
-	UpdateOOBB();
+	UpdateWorldTransformAll();
+	UpdateOOBBAll();
 }
 
-pair<shared_ptr<GameObject>, shared_ptr<GameObject>> GameObject::CheckCollision(const shared_ptr<GameObject>& _other) {
+bool GameObject::CheckCollision(const shared_ptr<GameObject>& _other) const {
+	OOBB_TYPE otherOOBBType = _other->GetOOBBType();
+	if ( !IsOOBBTypeDisabled(OOBBType) && !IsOOBBTypeDisabled(otherOOBBType) ) {
+		if (boundingBox.Intersects(_other->boundingBox)) {	// 충돌체크를 한다.
+			if (OOBBType != PRIVATEOOBB_COVER && otherOOBBType != PRIVATEOOBB_COVER) {
+				return true;
+			}
+		}
+		else {	// 충돌하지 않았을 경우
+			if (OOBBType == PRIVATEOOBB_COVER || otherOOBBType == PRIVATEOOBB_COVER) {
+				return false;
+			}
+		}
+	}
 
-	if (pMesh) {
-		if (_other->pMesh && boundingBox.Intersects(_other->boundingBox)) {
-			cout << pMesh->GetName() << ", " << _other->pMesh->GetName() << "충돌!!\n";
-			return { shared_from_this(), _other };
+	if (!IsOOBBTypeFinal(otherOOBBType)) {	// 상대쪽이 Final이 아닐경우, 상대방 자식과 충돌확인해 본다.
+		for (const auto& pOtherChild : _other->pChildren) {
+			if (CheckCollision(pOtherChild))
+				return true;
 		}
+	}
 
-	}
-	for (const auto& pChild : _other->pChildren) {
-		auto result = CheckCollision(pChild);
-		// 충돌 했을 경우 nullptr이 아닌 포인터 pair가 리턴된다.
-		if (result.first && result.second) {
-			return result;
+	if (!IsOOBBTypeFinal(OOBBType)) {	// 내쪽이 Final이 아닐경우, 자식들과 상대방쪽 충동을 확인해 본다.
+		for (const auto& pChild : pChildren) {
+			if (pChild->CheckCollision(_other))
+				return true;
 		}
 	}
-	for (const auto& pChild : pChildren) {
-		auto result = pChild->CheckCollision(_other);
-		if (result.first && result.second) {
-			return result;
-		}
-	}
-	return {nullptr, nullptr};
+
+	return false;
 }
 
 void GameObject::Animate(double _timeElapsed) {
-
 
 	for (const auto& pChild : pChildren) {
 		pChild->Animate(_timeElapsed);
@@ -339,10 +338,9 @@ void GameObject::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) 
 	}
 
 }
-
 void GameObject::RenderHitBox(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, HitBoxMesh& _hitBox) {
 	
-	if (pMesh) {	// 메쉬가 있을 경우에만 렌더링을 한다.
+	if (!IsOOBBTypeDisabled(OOBBType)) {	// 메쉬가 있을 경우에만 렌더링을 한다.
 		UpdateHitboxShaderVariable(_pCommandList);
 		// 사용할 쉐이더의 그래픽스 파이프라인을 설정한다 [수정요망]
 		_hitBox.Render(_pCommandList);
@@ -352,26 +350,32 @@ void GameObject::RenderHitBox(const ComPtr<ID3D12GraphicsCommandList>& _pCommand
 	}
 }
 
-
 void GameObject::UpdateShaderVariable(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	XMFLOAT4X4 world;
 	XMStoreFloat4x4(&world, XMMatrixTranspose(XMLoadFloat4x4(&worldTransform)));
 	_pCommandList->SetGraphicsRoot32BitConstants(1, 16, &world, 0);
 }
-
 void GameObject::UpdateHitboxShaderVariable(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	if (pMesh) {
-		BoundingOrientedBox boundingBox = pMesh->GetOOBB();
-		XMFLOAT4X4 world = Matrix4x4::ScaleTransform(Vector3::ScalarProduct(pMesh->GetOOBB().Extents, 2.0f));
-		XMFLOAT4X4 translate = Matrix4x4::Identity();
-		translate._41 += boundingBox.Center.x;
-		translate._42 += boundingBox.Center.y;
-		translate._43 += boundingBox.Center.z;
-		world = Matrix4x4::Multiply(Matrix4x4::Multiply(world, worldTransform), translate);
-		XMStoreFloat4x4(&world, XMMatrixTranspose(XMLoadFloat4x4(&world)));
-		//world = Matrix4x4::Identity();
-		_pCommandList->SetGraphicsRoot32BitConstants(1, 16, &world, 0);
+
+		//BoundingOrientedBox boundingBox = pMesh->GetOOBB();
+		//XMFLOAT4X4 world = Matrix4x4::ScaleTransform(Vector3::ScalarProduct(boundingBox.Extents, 2.0f));
+		//world._41 += boundingBox.Center.x;
+		//world._42 += boundingBox.Center.y;
+		//world._43 += boundingBox.Center.z;
+		//world = Matrix4x4::Multiply(world, worldTransform);
+		//XMStoreFloat4x4(&world, XMMatrixTranspose(XMLoadFloat4x4(&world)));
+		//_pCommandList->SetGraphicsRoot32BitConstants(1, 16, &world, 0);
+
+
 	}
+
+	
+	XMFLOAT4X4 world = Matrix4x4::ScaleTransform(Vector3::ScalarProduct(boundingBox.Extents, 2.0f));
+	world = Matrix4x4::Multiply(world, Matrix4x4::RotateQuaternion(boundingBox.Orientation));
+	world = Matrix4x4::Multiply(world, Matrix4x4::MoveTransform(boundingBox.Center));
+	XMStoreFloat4x4(&world, XMMatrixTranspose(XMLoadFloat4x4(&world)));
+	_pCommandList->SetGraphicsRoot32BitConstants(1, 16, &world, 0);
 }
 
 void GameObject::CopyObject(const GameObject& _other) {
@@ -387,7 +391,8 @@ void GameObject::CopyObject(const GameObject& _other) {
 	// 빛도 복사해야 한다.
 
 	boundingBox = _other.boundingBox;
-	isOOBBBCover = _other.isOOBBBCover;
+	OOBBType = _other.OOBBType;
+	pPrivateOOBB = _other.pPrivateOOBB;
 
 	pMesh = _other.pMesh;
 
@@ -397,8 +402,6 @@ void GameObject::CopyObject(const GameObject& _other) {
 		SetChild(child);
 	}
 }
-
-
 
 /////////////////////////// GameObjectManager /////////////////////
 unordered_map<string, shared_ptr<GameObject>> GameObjectManager::storage;
@@ -446,3 +449,5 @@ bool GameObjectManager::AddObject(shared_ptr<GameObject> _newObject) {
 	}
 	return false;
 }
+
+

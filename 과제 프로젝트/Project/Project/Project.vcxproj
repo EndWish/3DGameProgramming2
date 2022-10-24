@@ -140,6 +140,7 @@
     <ClInclude Include="GameFramework.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="Gunship.h" />
+    <ClInclude Include="GunshipEnemy.h" />
     <ClInclude Include="Helicopter.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Material.h" />
@@ -160,6 +161,7 @@
     <ClCompile Include="GameFramework.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="Gunship.cpp" />
+    <ClCompile Include="GunshipEnemy.cpp" />
     <ClCompile Include="Helicopter.cpp" />
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="Material.cpp" />

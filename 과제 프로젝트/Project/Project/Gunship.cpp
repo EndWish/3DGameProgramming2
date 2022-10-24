@@ -3,7 +3,9 @@
 #include "GameFramework.h"
 
 Gunship::Gunship() {
-
+	hSpeed = 100.f;
+	vSpeed = 30.f;
+	rSpeed = 360.f;
 }
 
 Gunship::~Gunship() {
@@ -21,6 +23,12 @@ void Gunship::Create() {
 	pRotor = GetChild("GameObject_Rotor");
 	pBackRotor = GetChild("GameObject_Back_Rotor");
 
+	if (!pPrivateOOBB) {
+		shared_ptr<BoundingOrientedBox> pNewPrivateOOBB = make_shared<BoundingOrientedBox>();
+		pNewPrivateOOBB->Center = XMFLOAT3(0, 0.667923, -2);
+		pNewPrivateOOBB->Extents = XMFLOAT3(7, 4, 11);
+		SetPrivateOOBB(pNewPrivateOOBB, OOBB_TYPE::PRIVATEOOBB_COVER);
+	}
 }
 
 void Gunship::Animate(double _timeElapsed) {
