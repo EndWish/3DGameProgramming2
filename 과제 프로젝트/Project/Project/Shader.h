@@ -1,6 +1,7 @@
 #pragma once
 
 class BasicShader;
+class AlphaBlendingShader;
 class HitBoxShader;
 class TerrainShader;
 class BillBoardShader;
@@ -8,12 +9,15 @@ class BillBoardShader;
 class Shader {
 private:
 	static shared_ptr<BasicShader> basicShader;
+	static shared_ptr<AlphaBlendingShader> alphaBlendingShader;
 	static shared_ptr<HitBoxShader> hitBoxShader;
 	static shared_ptr<TerrainShader> terrainShader;
 	static shared_ptr<BillBoardShader> billBoardShader;
 public:
 	static void MakeBasicShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
 	static shared_ptr<BasicShader> GetBasicShader();
+	static void MakeAlphaBlendingShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
+	static shared_ptr<AlphaBlendingShader> GetAlphaBlendingShader();
 	static void MakeHitBoxShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
 	static shared_ptr<HitBoxShader> GetHitBoxShader();
 	static void MakeTerrainShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
@@ -55,6 +59,18 @@ public:
 
 };
 
+class AlphaBlendingShader : public Shader {
+
+public:
+	AlphaBlendingShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
+	virtual ~AlphaBlendingShader();
+
+	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() final;
+	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
+	virtual D3D12_BLEND_DESC CreateBlendState() final;
+	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState() final;
+};
+
 class TerrainShader : public Shader {
 
 public:
@@ -75,8 +91,6 @@ public:
 
 	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() final;
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
-	virtual D3D12_BLEND_DESC CreateBlendState();
-	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState();
 };
 
 class HitBoxShader : public Shader  {

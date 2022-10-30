@@ -89,7 +89,7 @@ public:
 	// get set ÇÔ¼ö
 	pair<int, int> GetClientSize();
 	bool GetDrawHitBox() const;
-	const shared_ptr<Scene>& GetCurrentScene() const;
+	shared_ptr<Scene> GetCurrentScene();
 	bool GetLeftMouseDrag() const;
 	POINT GetClickedLeftMousePos() const;
 	

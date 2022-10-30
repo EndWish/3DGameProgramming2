@@ -5,11 +5,16 @@ protected:
 	weak_ptr<GameObject> wpTarget;
 
 public:
+	GunshipEnemy();
+	virtual ~GunshipEnemy();
+
 	//get set ÇÔ¼ö
 	void SetTarget(shared_ptr<GameObject> _target);
 
 	// Animation
-	virtual void Animate(double _timeElapsed);
+	virtual void Animate(float _timeElapsed);
+
+	virtual void Attacked(float _dmg);
 
 };
 

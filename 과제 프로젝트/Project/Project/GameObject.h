@@ -22,13 +22,13 @@ protected:
 public:
 	static shared_ptr<GameObject> LoadFromFile(ifstream& _file, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 protected:
-	// 만약 GameObject에 변수를 추가했다면, 복사 생성자도 수정해라
+	WORLD_OBJ_LAYER layer;
 
+	// 만약 GameObject에 변수를 추가했다면, 복사 생성자도 수정해라
 	string name;
 
 	// 월드좌표계 기준 : eachTransform 이 바뀌면 항상 동기화 해준다.
 	XMFLOAT4X4 worldTransform;
-	
 
 	// 부모좌표계 기준
 	XMFLOAT4X4 localTransform;
@@ -56,6 +56,7 @@ public:
 	// get set 함수
 	// Get이름
 	const string& GetName() const;
+	const shared_ptr<Mesh> GetMesh() const;
 
 	// 부모좌표계기준 벡터들을 얻는다.
 	XMFLOAT3 GetLocalRightVector() const;
@@ -88,6 +89,7 @@ public:
 	shared_ptr<GameObject> GetRootParent();	// 루트 조상을 리턴한다.
 
 	// 이름 설정
+	void SetLayer(WORLD_OBJ_LAYER _layer);
 	void SetName(const string& _name);
 	
 	void SetLocalPosition(const XMFLOAT3& _position);	// 위치를 강제로 이동시킨다.
@@ -107,10 +109,11 @@ public:
 	void UpdateObject();	// 위 3개의 update를 한번에 한다.
 
 	// 충돌 체크
+	virtual void ProcessCollision(float _timeElapsed);
 	bool CheckCollision(const shared_ptr<GameObject>& _other) const;
 
 	// 애니메이션
-	virtual void Animate(double _timeElapsed);
+	virtual void Animate(float _timeElapsed);
 
 	// 렌더
 	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
@@ -120,6 +123,7 @@ public:
 	void UpdateHitboxShaderVariable(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	
 	void CopyObject(const GameObject& _other);
+	void DeleteMe();
 };
 
 class GameObjectManager {
@@ -127,10 +131,14 @@ private:
 	static unordered_map<string, shared_ptr<GameObject>> storage;
 
 public:
+	static bool AddObject(shared_ptr<GameObject> _newObject);
 	static bool LoadFromFile(const string& _name, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+	static shared_ptr<GameObject> GetGameObject(const string& _name, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+	static shared_ptr<GameObject> GetGameObject(const string& _name);	// Object가 미리 Load되어 있음이 보장되어야 사용가능.
+
 	static void ReleaseObject(const string& _name);
 	static void ReleaseAllObject();
-	static shared_ptr<GameObject> GetGameObject(const string& _name, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
-	static bool AddObject(shared_ptr<GameObject> _newObject);
+	
+	
 };
 

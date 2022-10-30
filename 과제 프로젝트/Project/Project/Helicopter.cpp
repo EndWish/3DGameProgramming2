@@ -9,10 +9,7 @@ Helicopter::Helicopter() {
 }
 
 Helicopter::~Helicopter() {
-}
 
-void Helicopter::Create() {
-	
 }
 
 void Helicopter::MoveHorizontal(XMFLOAT3 _dir, float _timeElapsed) {
@@ -42,7 +39,7 @@ void Helicopter::MoveVertical(bool _up, float _timeElapsed) {
 	
 }
 
-void Helicopter::Animate(double _timeElapsed) {
+void Helicopter::Animate(float _timeElapsed) {
 	// 맵 끝과 충돌 체크
 	shared_ptr<GameObject> pRootParent = GetRootParent();
 	XMFLOAT3 localPos = pRootParent->GetLocalPosition();	// 나의 loaclPos == worldPos
@@ -51,6 +48,25 @@ void Helicopter::Animate(double _timeElapsed) {
 		localPos.z = clamp(localPos.z, 0.f, 2000.f);
 		pRootParent->SetLocalPosition(localPos);
 		pRootParent->UpdateObject();
+	}
+
+	auto& pTerrainObjects = ((shared_ptr<PlayScene>&)GameFramework::Instance().GetCurrentScene())->GetObjectsLayered(WORLD_OBJ_LAYER::TERRAIN);
+	array<XMFLOAT3, 8> corners;
+	boundingBox.GetCorners(corners.data());
+
+	for (const auto& terrain : pTerrainObjects) {
+		const HeightMapImage& heightMapImage = static_pointer_cast<TerrainMesh>(terrain->GetMesh())->GetHeightMapImage();
+		float depth = 0;
+		for (const XMFLOAT3& corner : corners) {
+			float TerrainHeight = heightMapImage.GetHeight(corner.x, corner.z);
+			if (corner.y < TerrainHeight) {
+				depth = max(depth, TerrainHeight - corner.y);
+			}
+		}
+		if (FLT_EPSILON < depth) {
+			pRootParent->Move(XMFLOAT3(0, depth, 0));
+			pRootParent->UpdateObject();
+		}
 	}
 
 	GameObject::Animate(_timeElapsed);

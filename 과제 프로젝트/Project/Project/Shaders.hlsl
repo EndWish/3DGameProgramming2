@@ -30,7 +30,7 @@ SamplerState gssClamp : register(s1);
 #include "Light.hlsl"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
+// Basic
 
 struct VS_INPUT
 {
@@ -62,6 +62,7 @@ VS_OUTPUT DefaultVertexShader(VS_INPUT input)
 	return output;
 }
 
+[earlydepthstencil]
 float4 DefaultPixelShader(VS_OUTPUT input) : SV_TARGET
 {
     float4 albedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -93,6 +94,55 @@ float4 DefaultPixelShader(VS_OUTPUT input) : SV_TARGET
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// AlphaBlending
+
+// 매개변수 구조체는 Basic과 공유한다.
+VS_OUTPUT AlphaBlendingVertexShader(VS_INPUT input)
+{
+    VS_OUTPUT output;
+
+    output.normal = mul(input.normal, (float3x3) worldTransform);
+    output.normal = normalize(output.normal);
+
+	// 조명 계산을 위해 월드좌표내에서의 포지션값을 계산해 따로 저장
+    output.positionW = (float3) mul(float4(input.position, 1.0f), worldTransform);
+
+    output.position = mul(mul(float4(output.positionW, 1.0f), view), projection);
+    output.uv = input.uv;
+    return output;
+}
+
+float4 AlphaBlendingPixelShader(VS_OUTPUT input) : SV_TARGET
+{
+    float4 albedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 specularColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 normalColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 metallicColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 emissionColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+	
+    if (textureType & MATERIAL_ALBEDO_MAP) 
+        albedoColor = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
+    if (textureType & MATERIAL_SPECULAR_MAP) 
+        specularColor = gtxtSpecularTexture.Sample(gssWrap, input.uv);
+    if (textureType & MATERIAL_NORMAL_MAP)
+        normalColor = gtxtNormalTexture.Sample(gssWrap, input.uv);
+    if (textureType & MATERIAL_METALLIC_MAP)
+        metallicColor = gtxtMetallicTexture.Sample(gssWrap, input.uv);
+    if (textureType & MATERIAL_EMISSION_MAP)
+        emissionColor = gtxtEmissionTexture.Sample(gssWrap, input.uv);
+	
+    float4 color = albedoColor + specularColor + emissionColor;
+    
+    float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    cIllumination = CalculateLight(input.positionW, input.normal);
+    
+    //color = lerp(color, cIllumination, 0.5f);
+    color.rgb = lerp(color.rgb, cIllumination.rgb, 0.5f);
+    
+    return color;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// HitBox
 
 struct VS_HITBOX_INPUT {
@@ -110,6 +160,7 @@ VS_HITBOX_OUTPUT HitboxVertexShader(VS_HITBOX_INPUT input) {
     return output;
 }
 
+[earlydepthstencil]
 float4 HitboxPixelShader(VS_HITBOX_OUTPUT input) : SV_TARGET {
     float4 color = float4(1.0f, 0.0f, 0.0f, 1.0f);
     return color;
@@ -133,7 +184,6 @@ struct VS_TERRAIN_OUTPUT
     float3 normal : NORMAL;
     float2 uv : TEXCOORD0;
     float2 uv2 : TEXCOORD1;
-    bool isWater : WATER;
 };
 
 VS_TERRAIN_OUTPUT TerrainVertexShader(VS_TERRAIN_INPUT input)
@@ -145,12 +195,6 @@ VS_TERRAIN_OUTPUT TerrainVertexShader(VS_TERRAIN_INPUT input)
 
 	// 조명 계산을 위해 월드좌표내에서의 포지션값을 계산해 따로 저장
     output.positionW = (float3) mul(float4(input.position, 1.0f), worldTransform);
-    output.isWater = false;
-    if (output.positionW.y < 200)
-    {
-        output.positionW.y = 200;
-        output.isWater = true;
-    }
 
     output.position = mul(mul(float4(output.positionW, 1.0f), view), projection);
     output.uv = input.uv;
@@ -161,6 +205,7 @@ VS_TERRAIN_OUTPUT TerrainVertexShader(VS_TERRAIN_INPUT input)
     return output;
 }
 
+[earlydepthstencil]
 float4 TerrainPixelShader(VS_TERRAIN_OUTPUT input) : SV_TARGET
 {
     float4 albedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -183,12 +228,7 @@ float4 TerrainPixelShader(VS_TERRAIN_OUTPUT input) : SV_TARGET
     if (textureType & MATERIAL_DETAIL_ALBEDO_MAP)
         detailAlbedoColor = gtxtDetailAlbedoTexture.Sample(gssWrap, input.uv2);
 	
-    float4 color = albedoColor + specularColor + emissionColor;
-    
-    if (input.isWater)
-    {
-        color += detailAlbedoColor;
-    }
+    float4 color = albedoColor + specularColor + emissionColor + detailAlbedoColor;
     
     float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
     cIllumination = CalculateLight(input.positionW, input.normal);
@@ -287,8 +327,9 @@ float4 BillBoardPixelShader(GS_BILLBOARD_OUTPUT input) : SV_TARGET
     cIllumination = CalculateLight(input.positionW, input.normal);
     
     color.rgb = lerp(color.rgb, cIllumination.rgb, 0.5f);
-    
-    return color;
+    if (color.a < 0.1f)
+        discard;
+    return color; 
 }
 
 

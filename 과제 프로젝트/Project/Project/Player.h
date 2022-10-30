@@ -16,5 +16,6 @@ public:
 
 	virtual void Create();
 
+	bool TryFireMissile();
 };
 

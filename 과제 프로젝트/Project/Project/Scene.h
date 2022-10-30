@@ -2,15 +2,6 @@
 #include "Player.h"
 #include "Light.h"
 
-enum WORLD_OBJ_LAYER {
-	PLAYER,
-	TERRAIN,
-	ENEMY,
-	BILLBOARD,
-
-	NUM
-};
-
 class Scene {
 protected:
 
@@ -21,11 +12,11 @@ public:
 public:
 	virtual void Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) = 0;
 	virtual void ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, float _timeElapsed) = 0;
-	virtual void AnimateObjects(double _timeElapsed) = 0;
-	virtual void CheckCollision();
+	virtual void AnimateObjects(float _timeElapsed) = 0;
+	virtual void ProcessCollision(float _timeElapsed) = 0;
+	virtual void EraseNullptrElements() = 0;
 	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) = 0;
 };
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// PlayScene
@@ -43,8 +34,6 @@ protected:
 
 	XMFLOAT4 globalAmbient;
 	shared_ptr<Camera> camera;
-
-	//shared_ptr<TerrainMesh> terrainMesh;	//[юс╫ц]
 	
 public:
 	PlayScene(int _stageNum);
@@ -54,12 +43,15 @@ public:
 	void LoadObjects(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	void Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) final;
 	void ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, float _timeElapsed) final;
-	void AnimateObjects(double _timeElapsed) final;
-	void CheckCollision() final;
+	void AnimateObjects(float _timeElapsed) final;
+	void ProcessCollision(float _timeElapsed) final;
+	void EraseNullptrElements() final;
 	void UpdateLightShaderVariables(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) final;
 
 	void AddLight(const shared_ptr<Light>& _pLight);
+	void AddObject(const shared_ptr<GameObject>& _pObject, WORLD_OBJ_LAYER _layer);
+	void DeleteObject(shared_ptr<GameObject> _pObject, WORLD_OBJ_LAYER _layer);
 
 	vector<shared_ptr<GameObject>>& GetObjectsLayered(WORLD_OBJ_LAYER _layer);
 };

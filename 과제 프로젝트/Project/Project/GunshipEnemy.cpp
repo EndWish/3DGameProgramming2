@@ -2,11 +2,18 @@
 #include "GunshipEnemy.h"
 #include "GameFramework.h"
 
+GunshipEnemy::GunshipEnemy() {
+	
+}
+GunshipEnemy::~GunshipEnemy() {
+
+}
+
 void GunshipEnemy::SetTarget(shared_ptr<GameObject> _target) {
 	wpTarget = _target;
 }
 
-void GunshipEnemy::Animate(double _timeElapsed) {
+void GunshipEnemy::Animate(float _timeElapsed) {
 	shared_ptr<GameObject> pTarget = wpTarget.lock();
 
 	if (!pTarget) {	// 타깃이 없을 경우
@@ -30,7 +37,7 @@ void GunshipEnemy::Animate(double _timeElapsed) {
 		float distance = Vector3::Distance(targetDir);
 		
 		// 수평이동
-		if (distance < 30.f) {	// 타겟과 가까우면 회전만 한다.
+		if (distance < 100.f) {	// 타겟과 가까우면 회전만 한다.
 			float comebackSpeed = hSpeed; 
 			hSpeed = 0;
 			MoveHorizontal(targetDir, _timeElapsed);
@@ -79,4 +86,11 @@ void GunshipEnemy::Animate(double _timeElapsed) {
 	}
 
 	Gunship::Animate(_timeElapsed);
+}
+
+void GunshipEnemy::Attacked(float _dmg) {
+	Unit::Attacked(_dmg);
+	cout << hp << "\n";
+	if (hp <= 0)
+		DeleteMe();
 }

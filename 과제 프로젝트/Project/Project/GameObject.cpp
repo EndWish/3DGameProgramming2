@@ -65,6 +65,7 @@ shared_ptr<GameObject> GameObject::LoadFromFile(ifstream& _file, const ComPtr<ID
 }
 
 GameObject::GameObject() {
+	layer = NONE;
 	name = "unknown";
 	worldTransform = Matrix4x4::Identity();
 	localTransform = Matrix4x4::Identity();
@@ -84,6 +85,10 @@ void GameObject::Create() {
 
 const string& GameObject::GetName() const {
 	return name;
+}
+
+const shared_ptr<Mesh> GameObject::GetMesh() const {
+	return pMesh;
 }
 
 XMFLOAT3 GameObject::GetLocalRightVector() const {
@@ -183,6 +188,9 @@ shared_ptr<GameObject> GameObject::GetRootParent() {
 	return shared_from_this();
 }
 
+void GameObject::SetLayer(WORLD_OBJ_LAYER _layer) {
+	layer = _layer;
+}
 void GameObject::SetName(const string& _name) {
 	name = _name;
 }
@@ -212,6 +220,7 @@ void GameObject::SetChild(const shared_ptr<GameObject> _pChild) {
 }
 void GameObject::SetMesh(const shared_ptr<Mesh>& _pMesh, OOBB_TYPE _OOBBType) {
 	pMesh = _pMesh;
+	OOBBType = _OOBBType;
 }
 void GameObject::SetPrivateOOBB(const shared_ptr<BoundingOrientedBox>& _pPrivateOOBB, OOBB_TYPE _OOBBType) {
 	pPrivateOOBB = _pPrivateOOBB;
@@ -287,6 +296,9 @@ void GameObject::UpdateObject() {
 	UpdateOOBBAll();
 }
 
+void GameObject::ProcessCollision(float _timeElapsed) {
+
+}
 bool GameObject::CheckCollision(const shared_ptr<GameObject>& _other) const {
 	OOBB_TYPE otherOOBBType = _other->GetOOBBType();
 	if ( !IsOOBBTypeDisabled(OOBBType) && !IsOOBBTypeDisabled(otherOOBBType) ) {
@@ -319,7 +331,7 @@ bool GameObject::CheckCollision(const shared_ptr<GameObject>& _other) const {
 	return false;
 }
 
-void GameObject::Animate(double _timeElapsed) {
+void GameObject::Animate(float _timeElapsed) {
 
 	for (const auto& pChild : pChildren) {
 		pChild->Animate(_timeElapsed);
@@ -356,21 +368,6 @@ void GameObject::UpdateShaderVariable(const ComPtr<ID3D12GraphicsCommandList>& _
 	_pCommandList->SetGraphicsRoot32BitConstants(1, 16, &world, 0);
 }
 void GameObject::UpdateHitboxShaderVariable(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
-	if (pMesh) {
-
-		//BoundingOrientedBox boundingBox = pMesh->GetOOBB();
-		//XMFLOAT4X4 world = Matrix4x4::ScaleTransform(Vector3::ScalarProduct(boundingBox.Extents, 2.0f));
-		//world._41 += boundingBox.Center.x;
-		//world._42 += boundingBox.Center.y;
-		//world._43 += boundingBox.Center.z;
-		//world = Matrix4x4::Multiply(world, worldTransform);
-		//XMStoreFloat4x4(&world, XMMatrixTranspose(XMLoadFloat4x4(&world)));
-		//_pCommandList->SetGraphicsRoot32BitConstants(1, 16, &world, 0);
-
-
-	}
-
-	
 	XMFLOAT4X4 world = Matrix4x4::ScaleTransform(Vector3::ScalarProduct(boundingBox.Extents, 2.0f));
 	world = Matrix4x4::Multiply(world, Matrix4x4::RotateQuaternion(boundingBox.Orientation));
 	world = Matrix4x4::Multiply(world, Matrix4x4::MoveTransform(boundingBox.Center));
@@ -402,10 +399,25 @@ void GameObject::CopyObject(const GameObject& _other) {
 		SetChild(child);
 	}
 }
+void GameObject::DeleteMe() {
+	if (layer < NUM) {
+		static_pointer_cast<PlayScene>(GameFramework::Instance().GetCurrentScene())->DeleteObject(shared_from_this(), layer);
+	}
+}
 
 /////////////////////////// GameObjectManager /////////////////////
 unordered_map<string, shared_ptr<GameObject>> GameObjectManager::storage;
 
+bool GameObjectManager::AddObject(shared_ptr<GameObject> _newObject) {
+	if (!_newObject)
+		return false;
+
+	if (!storage.contains(_newObject->GetName())) {
+		storage[_newObject->GetName()] = _newObject;
+		return true;
+	}
+	return false;
+}
 bool GameObjectManager::LoadFromFile(const string& _name, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	
 	if (!storage.contains(_name)) {	// 메모리에 오브젝트가 없을 경우
@@ -420,34 +432,28 @@ bool GameObjectManager::LoadFromFile(const string& _name, const ComPtr<ID3D12Dev
 	
 	return false;
 }
-
-void GameObjectManager::ReleaseObject(const string& _name) {
-	storage.erase(_name);
-}
-
-void GameObjectManager::ReleaseAllObject() {
-	storage.clear();
-}
-
-shared_ptr<GameObject> GameObjectManager::GetGameObject(const string& _name, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
-
-	LoadFromFile(_name, _pDevice, _pCommandList);	// 이미 메모리가 올라와 있다면 알아서 불러오지 않음
-	
+shared_ptr<GameObject> GameObjectManager::GetGameObject(const string& _name) {
 	// 스토리지 내 오브젝트 정보와 같은 오브젝트를 복사하여 생성한다.
 	shared_ptr<GameObject> Object = make_shared<GameObject>();
 	Object->CopyObject(*storage[_name]);
 	return Object;
 }
+shared_ptr<GameObject> GameObjectManager::GetGameObject(const string& _name, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 
-bool GameObjectManager::AddObject(shared_ptr<GameObject> _newObject) {
-	if (!_newObject)
-		return false;
+	LoadFromFile(_name, _pDevice, _pCommandList);	// 이미 메모리가 올라와 있다면 알아서 불러오지 않음
 
-	if (!storage.contains(_newObject->GetName())) {
-		storage[_newObject->GetName()] = _newObject;
-		return true;
-	}
-	return false;
+	return GetGameObject(_name);
 }
+
+
+
+void GameObjectManager::ReleaseObject(const string& _name) {
+	storage.erase(_name);
+}
+void GameObjectManager::ReleaseAllObject() {
+	storage.clear();
+}
+
+
 
 

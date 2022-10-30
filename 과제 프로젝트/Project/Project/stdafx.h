@@ -84,6 +84,18 @@ extern UINT gnCbvSrvDescriptorIncrementSize;
 
 extern random_device rd;
 
+enum WORLD_OBJ_LAYER {
+	PLAYER,
+	TERRAIN,
+	ENEMY,
+	BILLBOARD,
+	PLAYER_ATTACK,
+	ENEMY_ATTACK,
+	NO_COLLIDER,
+	NUM,
+	NONE,
+};
+
 namespace Vector3 {
 
 	inline XMFLOAT3 Normalize(const XMFLOAT3& _vector) {
@@ -200,7 +212,6 @@ namespace Vector4 {
 	}
 
 }
-
 
 namespace Matrix4x4 {
 	inline XMFLOAT4X4 Identity() {

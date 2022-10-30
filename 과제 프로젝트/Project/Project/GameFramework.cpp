@@ -32,10 +32,10 @@ void GameFramework::Create(HINSTANCE _hInstance, HWND _hMainWnd) {
 
 		// 쉐이더 생성
 		Shader::MakeBasicShader(gameFramework.pDevice, gameFramework.pRootSignature);
+		Shader::MakeAlphaBlendingShader(gameFramework.pDevice, gameFramework.pRootSignature);
 		Shader::MakeTerrainShader(gameFramework.pDevice, gameFramework.pRootSignature);
 		Shader::MakeBillBoardShader(gameFramework.pDevice, gameFramework.pRootSignature);
 		Shader::MakeHitBoxShader(gameFramework.pDevice, gameFramework.pRootSignature);
-		
 
 		// 히트박스용 메쉬 생성
 		HitBoxMesh::MakeHitBoxMesh(gameFramework.pDevice, gameFramework.pCommandList);
@@ -432,10 +432,12 @@ pair<int, int> GameFramework::GetClientSize() {
 bool GameFramework::GetDrawHitBox() const {
 	return drawHitBox;
 }
-const shared_ptr<Scene>& GameFramework::GetCurrentScene() const {
-	//if (!pScenes.empty()) {
+shared_ptr<Scene> GameFramework::GetCurrentScene() {
+	if (!pScenes.empty()) {
 		return pScenes.top();
-	//}
+	}
+	cout << "에러 : 씬이 없다.\n";
+	return NULL;
 }
 bool GameFramework::GetLeftMouseDrag() const {
 	return leftMouseDrag;
@@ -444,17 +446,17 @@ POINT GameFramework::GetClickedLeftMousePos() const {
 	return clickedLeftMousePos;
 }
 
+
 void GameFramework::FrameAdvance() {
 
 	gameTimer.Tick(.0f);
 	ProcessInput();
 	// 씬 진행(애니메이트). 스택의 맨 위 원소에 대해 진행
 	if (!pScenes.empty()) {
-		pScenes.top()->AnimateObjects(gameTimer.GetTimeElapsed());
-		pScenes.top()->CheckCollision();
-		// 씬의 오브젝트 충돌처리 [수정]
+		pScenes.top()->AnimateObjects((float)gameTimer.GetTimeElapsed());
+		pScenes.top()->ProcessCollision((float)gameTimer.GetTimeElapsed());
+		pScenes.top()->EraseNullptrElements();
 	}
-
 
 	// 명령 할당자와 명령 리스트를 리셋한다.
 	HRESULT hResult = pCommandAllocator->Reset();
