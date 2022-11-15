@@ -50,24 +50,29 @@ void Helicopter::Animate(float _timeElapsed) {
 		pRootParent->UpdateObject();
 	}
 
-	auto& pTerrainObjects = ((shared_ptr<PlayScene>&)GameFramework::Instance().GetCurrentScene())->GetObjectsLayered(WORLD_OBJ_LAYER::TERRAIN);
-	array<XMFLOAT3, 8> corners;
-	boundingBox.GetCorners(corners.data());
+	if (!IsOOBBTypeDisabled(OOBBType)) {
+		// boundingBox 가 없는 부분을 수정 하자
+		auto& pTerrainObjects = ((shared_ptr<PlayScene>&)GameFramework::Instance().GetCurrentScene())->GetObjectsLayered(WORLD_OBJ_LAYER::TERRAIN);
+		array<XMFLOAT3, 8> corners;
+		boundingBox.GetCorners(corners.data());
 
-	for (const auto& terrain : pTerrainObjects) {
-		const HeightMapImage& heightMapImage = static_pointer_cast<TerrainMesh>(terrain->GetMesh())->GetHeightMapImage();
-		float depth = 0;
-		for (const XMFLOAT3& corner : corners) {
-			float TerrainHeight = heightMapImage.GetHeight(corner.x, corner.z);
-			if (corner.y < TerrainHeight) {
-				depth = max(depth, TerrainHeight - corner.y);
+		for (const auto& terrain : pTerrainObjects) {
+			const HeightMapImage& heightMapImage = static_pointer_cast<TerrainMesh>(terrain->GetMesh())->GetHeightMapImage();
+			float depth = 0;
+			for (const XMFLOAT3& corner : corners) {
+				float TerrainHeight = heightMapImage.GetHeight(corner.x, corner.z);
+				if (corner.y < TerrainHeight) {
+					depth = max(depth, TerrainHeight - corner.y);
+				}
+			}
+
+			if (FLT_EPSILON < depth) {
+				pRootParent->Move(XMFLOAT3(0, depth, 0));
+				pRootParent->UpdateObject();
 			}
 		}
-		if (FLT_EPSILON < depth) {
-			pRootParent->Move(XMFLOAT3(0, depth, 0));
-			pRootParent->UpdateObject();
-		}
 	}
+
 
 	GameObject::Animate(_timeElapsed);
 }

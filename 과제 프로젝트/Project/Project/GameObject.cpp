@@ -266,7 +266,7 @@ void GameObject::UpdateOOBB() {
 			// Mesh의 OOBB를 현재 오브젝트의 transform값으로 변환
 			pMesh->GetOOBB().Transform(boundingBox, XMLoadFloat4x4(&worldTransform));
 			// OOBB의 회전값을 정규화
-			//XMStoreFloat4(&boundingBox.Orientation, XMQuaternionNormalize(XMLoadFloat4(&boundingBox.Orientation)));
+			XMStoreFloat4(&boundingBox.Orientation, XMQuaternionNormalize(XMLoadFloat4(&boundingBox.Orientation)));
 		}
 		else {
 			cout << "에러 : 메쉬가 없어서 OOBB를 만들 수 없습니다.\n";

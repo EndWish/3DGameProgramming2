@@ -179,19 +179,22 @@ void PlayScene::ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, floa
 		pPlayer->UpdateObject();
 	}
 	
+	if (_keysBuffers['K'] & 0xF0) {
+		renderOOBBBox = !renderOOBBBox;
+	}
 }
 
 void PlayScene::AnimateObjects(float _timeElapsed) {
 	//// 적기의 수가 적을 경우 생성한다.
-	//if (ppObjects[WORLD_OBJ_LAYER::ENEMY].size() < 30) {
-	//	uniform_real_distribution<float> urd(0, 2000.f);
+	if (ppObjects[WORLD_OBJ_LAYER::ENEMY].size() < 30) {
+		uniform_real_distribution<float> urd(0, 2000.f);
 
-	//	shared_ptr<GameObject> newEnemy = make_shared<GunshipEnemy>();
-	//	newEnemy->Create();
-	//	newEnemy->SetLocalPosition(XMFLOAT3(urd(rd), 400.f, urd(rd)));
-	//	newEnemy->UpdateObject();
-	//	AddObject(newEnemy, WORLD_OBJ_LAYER::ENEMY);
-	//}
+		shared_ptr<GameObject> newEnemy = make_shared<GunshipEnemy>();
+		newEnemy->Create();
+		newEnemy->SetLocalPosition(XMFLOAT3(urd(rd), 400.f, urd(rd)));
+		newEnemy->UpdateObject();
+		AddObject(newEnemy, WORLD_OBJ_LAYER::ENEMY);
+	}
 
 	for (auto& pObjects : ppObjects)
 		for (auto& pObject : pObjects)
@@ -207,9 +210,6 @@ void PlayScene::EraseNullptrElements() {
 	auto pred = [](const shared_ptr<GameObject>& _pObject) { return bool(!_pObject); };
 	auto removeStartIt = ranges::remove_if(ppObjects[layerCount], pred).begin();	// 반환값이용해서 삭제
 	ppObjects[layerCount].erase(removeStartIt, ppObjects[layerCount].end());
-	if (layerCount == WORLD_OBJ_LAYER::PLAYER_ATTACK) {
-		cout << ppObjects[layerCount].size() << "\n";
-	}
 
 	layerCount = (++layerCount) % WORLD_OBJ_LAYER::NUM;
 }
@@ -269,13 +269,16 @@ void PlayScene::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 		if (pObject) pObject->Render(_pCommandList);
 		
 	// 히트박스 렌더링
-	Shader::GetHitBoxShader()->PrepareRender(_pCommandList);
-	for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER])
-		if (pObject) pObject->RenderHitBox(_pCommandList, *HitBoxMesh::GetHitBoxMesh());
-	for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY])
-		if (pObject) pObject->RenderHitBox(_pCommandList, *HitBoxMesh::GetHitBoxMesh());
-	for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER_ATTACK])
-		if (pObject) pObject->RenderHitBox(_pCommandList, *HitBoxMesh::GetHitBoxMesh());
+	if (renderOOBBBox) {
+		Shader::GetHitBoxShader()->PrepareRender(_pCommandList);
+		for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER])
+			if (pObject) pObject->RenderHitBox(_pCommandList, *HitBoxMesh::GetHitBoxMesh());
+		for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY])
+			if (pObject) pObject->RenderHitBox(_pCommandList, *HitBoxMesh::GetHitBoxMesh());
+		for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER_ATTACK])
+			if (pObject) pObject->RenderHitBox(_pCommandList, *HitBoxMesh::GetHitBoxMesh());
+
+	}
 
 }
 

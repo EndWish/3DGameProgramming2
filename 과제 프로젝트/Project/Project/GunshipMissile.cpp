@@ -42,8 +42,7 @@ void GunshipMissile::ProcessCollision(float _timeElapsed) {
 		for (auto pObject : pObjects) {
 			if (pObject && CheckCollision(pObject)) {
 				static_pointer_cast<GunshipEnemy>(pObject)->Attacked(100.f);
-				DeleteMe();
-				cout << "Ãæµ¹\n";
+				DeleteMe();;
 				return;
 			}
 		}

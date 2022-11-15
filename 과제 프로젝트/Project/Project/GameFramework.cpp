@@ -581,7 +581,7 @@ void GameFramework::ProcessInput() {
 
 	if (GetKeyboardState((PBYTE)keysBuffers.data())) {	// 키보드로 부터 입력데이터를 받으면
 		if (keysBuffers['F'] & 0xF0) {
-			ChangeSwapChainState();
+			//ChangeSwapChainState();
 		}
 		// 일시정지
 		if (keysBuffers['P'] & 0xF0) {

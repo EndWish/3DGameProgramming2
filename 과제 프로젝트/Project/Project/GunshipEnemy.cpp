@@ -22,7 +22,7 @@ void GunshipEnemy::Animate(float _timeElapsed) {
 		for (auto& pPlayer : pPlayerObjects) {
 			if (pPlayer) {	// 플레이어가 있을 경우
 				float distance = Vector3::Distance(Vector3::Subtract(pPlayer->GetWorldPosition(), GetWorldPosition()));
-				if (distance < 500.f) {
+				if (distance < 5000.f) {
 					SetTarget(pPlayer);
 					break;
 				}
@@ -43,7 +43,7 @@ void GunshipEnemy::Animate(float _timeElapsed) {
 			MoveHorizontal(targetDir, _timeElapsed);
 			hSpeed = comebackSpeed;
 		}
-		else if(distance < 1000.f) {	// 타겟과 멀면 앞으로 가면서 회전도 한다.
+		else if(distance < 10000.f) {	// 타겟과 멀면 앞으로 가면서 회전도 한다.
 			MoveHorizontal(targetDir, _timeElapsed);
 		}
 		else {	// 타겟과 너무 멀면 놓친다.
@@ -90,7 +90,6 @@ void GunshipEnemy::Animate(float _timeElapsed) {
 
 void GunshipEnemy::Attacked(float _dmg) {
 	Unit::Attacked(_dmg);
-	cout << hp << "\n";
 	if (hp <= 0)
 		DeleteMe();
 }

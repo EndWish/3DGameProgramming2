@@ -34,6 +34,9 @@ protected:
 
 	XMFLOAT4 globalAmbient;
 	shared_ptr<Camera> camera;
+
+	// OOBB ±×¸®±â
+	bool renderOOBBBox = true;
 	
 public:
 	PlayScene(int _stageNum);
