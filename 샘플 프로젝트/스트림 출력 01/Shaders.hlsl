@@ -155,6 +155,7 @@ struct VS_PARTICLE_INPUT
 	uint type : PARTICLETYPE;
 };
 
+// 스트림 출력을 위한 버텍스 쉐이더
 VS_PARTICLE_INPUT VSParticleStreamOutput(VS_PARTICLE_INPUT input)
 {
 	return(input);
@@ -230,6 +231,7 @@ void OutputParticleToStream(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTIC
 void EmmitParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> output)
 {
 	float4 f4Random = RandomDirection(input.type);
+	// 수명이 다할때 새로운 파티클을 생성
 	if (input.lifetime <= 0.0f)
 	{
 		VS_PARTICLE_INPUT particle = input;
@@ -243,6 +245,7 @@ void EmmitParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT
 
 		input.lifetime = gfSecondsPerFirework * 0.2f + (f4Random.x * 0.4f);
 	}
+	// 수명이 남아 있으면 수명을 줄인다.
 	else
 	{
 		input.lifetime -= gfElapsedTime;
@@ -318,6 +321,7 @@ void GenerateEmberParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTIC
 	}
 }
 
+// 포인트를 받아 포인트 스트림으로 출력되도록 설정
 [maxvertexcount(128)]
 void GSParticleStreamOutput(point VS_PARTICLE_INPUT input[1], inout PointStream<VS_PARTICLE_INPUT> output)
 {

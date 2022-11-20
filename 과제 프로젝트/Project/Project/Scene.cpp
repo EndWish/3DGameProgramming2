@@ -22,7 +22,7 @@ PlayScene::PlayScene(int _stageNum) {
 void PlayScene::LoadObjects(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	// 지형 생성하기
 	VS_MaterialMappedFormat terrainMaterialColorsBuffer;
-	terrainMaterialColorsBuffer.diffuse = XMFLOAT4(0, 0, 0, 1);
+	terrainMaterialColorsBuffer.diffuse = XMFLOAT4(1, 1, 1, 1);
 	terrainMaterialColorsBuffer.specular = XMFLOAT4(0, 0, 0, 1);
 	terrainMaterialColorsBuffer.ambient = XMFLOAT4(0, 0, 0, 1);
 	terrainMaterialColorsBuffer.emissive = XMFLOAT4(0, 0, 0, 1);
@@ -52,8 +52,11 @@ void PlayScene::LoadObjects(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<I
 	GameObjectManager::AddObject(pTreeObject);
 
 	// 건쉽
-	GameObjectManager::LoadFromFile("Gunship", _pDevice, _pCommandList);	
+	GameObjectManager::LoadFromFile("Gunship", _pDevice, _pCommandList);
 	GameObjectManager::LoadFromFile("GunshipMissile", _pDevice, _pCommandList);
+
+	// 아파치
+	GameObjectManager::LoadFromFile("Apache", _pDevice, _pCommandList);
 
 	// 호수
 	GameObjectManager::LoadFromFile("Lake", _pDevice, _pCommandList);

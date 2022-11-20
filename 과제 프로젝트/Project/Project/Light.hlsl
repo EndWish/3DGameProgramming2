@@ -44,14 +44,12 @@ cbuffer cbLightInfo : register(b3) {
 }
 
 cbuffer cbMaterialInfo : register(b4) {
-    float4 ambient;
-    float4 diffuse;
-    float4 specular;
-    float4 emissive;
+    float4 materialAmbient;	// 사용안함
+    float4 materialDiffuse;
+    float4 materialSpecular;
+    float4 materialEmissive;
     uint textureType;
 }
-
-
 
 float4 DirectionalLight(int _nIndex, float3 _normal, float3 _toCamera)
 {
@@ -65,12 +63,11 @@ float4 DirectionalLight(int _nIndex, float3 _normal, float3 _toCamera)
 	if (diffuseFactor > EPSILON)	{
 		// 반사벡터를 구해 시선벡터와 내적하여 빛의 양 계산
 		float3 reflectVector = reflect(-toLight, _normal);
-		specularFactor = pow(max(dot(reflectVector, _toCamera), 0.0f), specular.a);
-	}
+        specularFactor = pow(max(dot(reflectVector, _toCamera), 0.0f), materialSpecular.a);
+    }
 	
-    return ((lights[_nIndex].ambient * ambient) + (lights[_nIndex].diffuse * diffuseFactor * diffuse) + (lights[_nIndex].specular * specularFactor * specular));
+    return ((lights[_nIndex].ambient * materialAmbient) + (lights[_nIndex].diffuse * diffuseFactor * materialDiffuse) + (lights[_nIndex].specular * specularFactor * materialSpecular));
 }
-
 
 float4 PointLight(int _nIndex, float3 _position, float3 _normal, float3 _toCamera)
 {
@@ -86,18 +83,17 @@ float4 PointLight(int _nIndex, float3 _position, float3 _normal, float3 _toCamer
 		
 		float diffuseFactor = dot(toLight, _normal);
         if (diffuseFactor > EPSILON) {
-			if (specular.a != 0.0f)	{
+			if (materialSpecular.a != 0.0f)	{
 				float3 reflectVec = reflect(-toLight, _normal);
-                specularFactor = pow(max(dot(reflectVec, _toCamera), 0.0f), specular.a);
+                specularFactor = pow(max(dot(reflectVec, _toCamera), 0.0f), materialSpecular.a);
             }
 		}
 		// 1/(x+y*d+z*d*d). distance = 0일 경우 1/x
         float attenuationFactor = 1.0f / dot(lights[_nIndex].attenuation, float3(1.0f, distance, distance*distance));
-        color = ((lights[_nIndex].ambient * ambient) + (lights[_nIndex].diffuse * diffuseFactor * diffuse) + (lights[_nIndex].specular * specularFactor * specular)) * attenuationFactor;
+        color = ((lights[_nIndex].ambient * materialAmbient) + (lights[_nIndex].diffuse * diffuseFactor * materialDiffuse) + (lights[_nIndex].specular * specularFactor * materialSpecular)) * attenuationFactor;
     }
 	return color;
 }
-
 
 float4 SpotLight(int _nIndex, float3 _position, float3 _normal, float3 _toCamera) {
     float4 color = float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -110,9 +106,9 @@ float4 SpotLight(int _nIndex, float3 _position, float3 _normal, float3 _toCamera
         float fDiffuseFactor = dot(toLight, _normal);
 		
         if (fDiffuseFactor > EPSILON) {
-            if (specular.a != 0.0f) {
+            if (materialSpecular.a != 0.0f) {
                 float3 vReflect = reflect(-toLight, _normal);
-                fSpecularFactor = pow(max(dot(vReflect, _toCamera), 0.0f), specular.a);
+                fSpecularFactor = pow(max(dot(vReflect, _toCamera), 0.0f), materialSpecular.a);
             }
         }
 		// phi = 내부 원을 그리는 각의 cos값, theta - 외부 원을 그리는 각의 cos값
@@ -125,11 +121,10 @@ float4 SpotLight(int _nIndex, float3 _position, float3 _normal, float3 _toCamera
         float attenuationFactor = 1.0f / dot(lights[_nIndex].attenuation, float3(1.0f, fDistance, fDistance * fDistance));
 				
 				// 각 계수를 구한 빛에 대해 곱
-        color = ((lights[_nIndex].ambient * ambient) + (lights[_nIndex].diffuse * fDiffuseFactor * diffuse) + (lights[_nIndex].specular * fSpecularFactor * specular)) * attenuationFactor * spotFactor;
+        color = ((lights[_nIndex].ambient * materialAmbient) + (lights[_nIndex].diffuse * fDiffuseFactor * materialDiffuse) + (lights[_nIndex].specular * fSpecularFactor * materialSpecular)) * attenuationFactor * spotFactor;
     }
     return color;
 }
-
 
 float4 CalculateLight(float3 _Position, float3 _Normal) {
 	
@@ -158,4 +153,5 @@ float4 CalculateLight(float3 _Position, float3 _Normal) {
 	//color.a = gm_cDiffuse.a;
     return color;
 }
+
 

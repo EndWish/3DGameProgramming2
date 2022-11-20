@@ -29,6 +29,18 @@ SamplerState gssClamp : register(s1);
 
 #include "Light.hlsl"
 
+struct OBJColors
+{
+    float4 diffuse;
+    float4 specular;
+    float4 emission;
+};
+
+float4 CalculateLight2(float3 _Position, float3 _Normal, OBJColors _objColors);
+float4 DirectionalLight2(int _nIndex, float3 _normal, float3 _toCamera, OBJColors _objColors);
+float4 PointLight2(int _nIndex, float3 _position, float3 _normal, float3 _toCamera, OBJColors _objColors);
+float4 SpotLight2(int _nIndex, float3 _position, float3 _normal, float3 _toCamera, OBJColors _objColors);
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Basic
 
@@ -65,32 +77,15 @@ VS_OUTPUT DefaultVertexShader(VS_INPUT input)
 [earlydepthstencil]
 float4 DefaultPixelShader(VS_OUTPUT input) : SV_TARGET
 {
-    float4 albedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 specularColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 normalColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 metallicColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 emissionColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    OBJColors objColors;
+    objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
+    objColors.specular = textureType & MATERIAL_SPECULAR_MAP ? gtxtSpecularTexture.Sample(gssWrap, input.uv) * materialSpecular : materialSpecular;
+    objColors.emission = textureType & MATERIAL_EMISSION_MAP ? gtxtEmissionTexture.Sample(gssWrap, input.uv) * materialEmissive : materialEmissive;
+    
+    float4 textureNormal = textureType & MATERIAL_NORMAL_MAP ? gtxtNormalTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 textureMetallic = textureType & MATERIAL_METALLIC_MAP ? gtxtMetallicTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
 	
-	if (textureType & MATERIAL_ALBEDO_MAP) 
-        albedoColor = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
-	if (textureType & MATERIAL_SPECULAR_MAP) 
-        specularColor = gtxtSpecularTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_NORMAL_MAP)
-        normalColor = gtxtNormalTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_METALLIC_MAP)
-        metallicColor = gtxtMetallicTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_EMISSION_MAP)
-        emissionColor = gtxtEmissionTexture.Sample(gssWrap, input.uv);
-	
-    float4 color = albedoColor + specularColor + emissionColor;
-    
-    float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
-    cIllumination = CalculateLight(input.positionW, input.normal);
-    
-    //color = lerp(color, cIllumination, 0.5f);
-    color.rgb = lerp(color.rgb, cIllumination.rgb, 0.5f);
-    
-	return color;
+    return CalculateLight2(input.positionW, input.normal, objColors);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -114,32 +109,15 @@ VS_OUTPUT AlphaBlendingVertexShader(VS_INPUT input)
 
 float4 AlphaBlendingPixelShader(VS_OUTPUT input) : SV_TARGET
 {
-    float4 albedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 specularColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 normalColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 metallicColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 emissionColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    OBJColors objColors;
+    objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
+    objColors.specular = textureType & MATERIAL_SPECULAR_MAP ? gtxtSpecularTexture.Sample(gssWrap, input.uv) * materialSpecular : materialSpecular;
+    objColors.emission = textureType & MATERIAL_EMISSION_MAP ? gtxtEmissionTexture.Sample(gssWrap, input.uv) * materialEmissive : materialEmissive;
+    
+    float4 textureNormal = textureType & MATERIAL_NORMAL_MAP ? gtxtNormalTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 textureMetallic = textureType & MATERIAL_METALLIC_MAP ? gtxtMetallicTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
 	
-    if (textureType & MATERIAL_ALBEDO_MAP) 
-        albedoColor = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_SPECULAR_MAP) 
-        specularColor = gtxtSpecularTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_NORMAL_MAP)
-        normalColor = gtxtNormalTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_METALLIC_MAP)
-        metallicColor = gtxtMetallicTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_EMISSION_MAP)
-        emissionColor = gtxtEmissionTexture.Sample(gssWrap, input.uv);
-	
-    float4 color = albedoColor + specularColor + emissionColor;
-    
-    float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
-    cIllumination = CalculateLight(input.positionW, input.normal);
-    
-    //color = lerp(color, cIllumination, 0.5f);
-    color.rgb = lerp(color.rgb, cIllumination.rgb, 0.5f);
-    
-    return color;
+    return CalculateLight2(input.positionW, input.normal, objColors);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -152,7 +130,6 @@ struct VS_HITBOX_INPUT {
 struct VS_HITBOX_OUTPUT {
     float4 position : SV_POSITION;
 };
-
 
 VS_HITBOX_OUTPUT HitboxVertexShader(VS_HITBOX_INPUT input) {
     VS_HITBOX_OUTPUT output;
@@ -208,35 +185,18 @@ VS_TERRAIN_OUTPUT TerrainVertexShader(VS_TERRAIN_INPUT input)
 [earlydepthstencil]
 float4 TerrainPixelShader(VS_TERRAIN_OUTPUT input) : SV_TARGET
 {
-    float4 albedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 specularColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 normalColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 metallicColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 emissionColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 detailAlbedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    OBJColors objColors;
+    objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
+    objColors.specular = textureType & MATERIAL_SPECULAR_MAP ? gtxtSpecularTexture.Sample(gssWrap, input.uv) * materialSpecular : materialSpecular;
+    objColors.emission = textureType & MATERIAL_EMISSION_MAP ? gtxtEmissionTexture.Sample(gssWrap, input.uv) * materialEmissive : materialEmissive;
+    
+    float4 textureNormal = textureType & MATERIAL_NORMAL_MAP ? gtxtNormalTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 textureMetallic = textureType & MATERIAL_METALLIC_MAP ? gtxtMetallicTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
 	
-    if (textureType & MATERIAL_ALBEDO_MAP) 
-        albedoColor = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_SPECULAR_MAP) 
-        specularColor = gtxtSpecularTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_NORMAL_MAP)
-        normalColor = gtxtNormalTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_METALLIC_MAP)
-        metallicColor = gtxtMetallicTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_EMISSION_MAP)
-        emissionColor = gtxtEmissionTexture.Sample(gssWrap, input.uv);
     if (textureType & MATERIAL_DETAIL_ALBEDO_MAP)
-        detailAlbedoColor = gtxtDetailAlbedoTexture.Sample(gssWrap, input.uv2);
+        objColors.diffuse += gtxtDetailAlbedoTexture.Sample(gssWrap, input.uv2);
 	
-    float4 color = albedoColor + specularColor + emissionColor + detailAlbedoColor;
-    
-    float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
-    cIllumination = CalculateLight(input.positionW, input.normal);
-    
-    //color = lerp(color, cIllumination, 0.5f);
-    color.rgb = lerp(color.rgb, cIllumination.rgb, 0.5f);
-    
-    return color;
+    return CalculateLight2(input.positionW, input.normal, objColors);
 } 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -304,32 +264,154 @@ void BillBoardGeometryShader(point VS_BILLBOARD_OUTPUT input[1], inout TriangleS
 
 float4 BillBoardPixelShader(GS_BILLBOARD_OUTPUT input) : SV_TARGET
 {
-    float4 albedoColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 specularColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 normalColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 metallicColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    float4 emissionColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
-	
-    if (textureType & MATERIAL_ALBEDO_MAP) 
-        albedoColor = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_SPECULAR_MAP) 
-        specularColor = gtxtSpecularTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_NORMAL_MAP)
-        normalColor = gtxtNormalTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_METALLIC_MAP)
-        metallicColor = gtxtMetallicTexture.Sample(gssWrap, input.uv);
-    if (textureType & MATERIAL_EMISSION_MAP)
-        emissionColor = gtxtEmissionTexture.Sample(gssWrap, input.uv);
-	
-    float4 color = albedoColor + specularColor + emissionColor;
+    OBJColors objColors;
+    objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
+    objColors.specular = textureType & MATERIAL_SPECULAR_MAP ? gtxtSpecularTexture.Sample(gssWrap, input.uv) * materialSpecular : materialSpecular;
+    objColors.emission = textureType & MATERIAL_EMISSION_MAP ? gtxtEmissionTexture.Sample(gssWrap, input.uv) * materialEmissive : materialEmissive;
     
-    float4 cIllumination = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    cIllumination = CalculateLight(input.positionW, input.normal);
+    float4 textureNormal = textureType & MATERIAL_NORMAL_MAP ? gtxtNormalTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
+    float4 textureMetallic = textureType & MATERIAL_METALLIC_MAP ? gtxtMetallicTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
     
-    color.rgb = lerp(color.rgb, cIllumination.rgb, 0.5f);
+    float4 color;
+    if (textureType & MATERIAL_NORMAL_MAP)  // 노멀맵이 있을 경우
+        color = CalculateLight2(input.positionW, input.normal, objColors);
+    else    // 노멀맵이 없는 경우
+    {
+        color = objColors.diffuse + objColors.specular + objColors.emission;
+        color.a = objColors.diffuse.a;
+    }
+    
     if (color.a < 0.1f)
         discard;
     return color; 
 }
 
 
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Lighting
+float4 CalculateLight2(float3 _Position, float3 _Normal, OBJColors _objColors)
+{
+    float3 toCamera = normalize(cameraPosition - _Position);    // 객체의 위치에서 카메라로의 방향
+    
+    float4 color = _objColors.diffuse * globalAmbient;  // 오브젝트의 원래 색상에 global 주변광의 비율만큼 곱해준다.
+    color += _objColors.emission;   // 발산광을 더해준다. (내가 빛을 내는 것이기 때문에 다른 조명에 영향을 받을 필요가 없다.)
+    
+	// 루프를 unroll하여 성능 향상. max light만큼 unroll시 셰이더 컴파일시에 시간이 너무 오래걸려 10%로 타협
+	[unroll(MAX_LIGHTS / 10)]
+    for (int i = 0; i < nLight; i++)
+    {
+        if (lights[i].enable)
+        {
+            if (lights[i].lightType == DIRECTIONAL_LIGHT)
+            {
+                color += DirectionalLight2(i, _Normal, toCamera, _objColors);
+            }
+            else if (lights[i].lightType == POINT_LIGHT)
+            {
+                color += PointLight2(i, _Position, _Normal, toCamera, _objColors);
+            }
+            else if (lights[i].lightType == SPOT_LIGHT)
+            {
+                color += SpotLight2(i, _Position, _Normal, toCamera, _objColors);
+            }
+        }
+        if (1 <= color.r && 1 <= color.g &&  1 <= color.b)
+            break;
+    }
+    
+    color.a = _objColors.diffuse.a;
+    return color;
+}
+float4 DirectionalLight2(int _nIndex, float3 _normal, float3 _toCamera, OBJColors _objColors)
+{
+
+	// 빛의 방향
+    float3 toLight = -lights[_nIndex].direction;
+	
+	// 빛의 방향과 정점의 법선으로 각도 계산
+    float diffuseFactor = dot(toLight, _normal);
+    if (diffuseFactor > EPSILON)    // 빛과 물체가 마주볼 경우
+    {
+		// 반사벡터를 구해 시선벡터와 내적하여 빛의 양 계산
+        float3 reflectVector = reflect(-toLight, _normal);
+        float specularFactor = pow(max(dot(reflectVector, _toCamera), 0.0f), materialSpecular.a);
+        
+        // 빛 디퓨즈 * 물체 디퓨즈 * 정도 + 빛 스페큘러 * 물체 스페큘러 * 스페큘러 정도
+        return (lights[_nIndex].diffuse * _objColors.diffuse * diffuseFactor) + (lights[_nIndex].specular * _objColors.specular * specularFactor);
+    }
+    else
+    {
+        return float4(0, 0, 0, 0);
+    }
+    return float4(0, 0, 0, 0);
+}
+float4 PointLight2(int _nIndex, float3 _position, float3 _normal, float3 _toCamera, OBJColors _objColors)
+{
+	// 빛과 정점사이 벡터로 거리 계산
+    float3 toLight = lights[_nIndex].position - _position;
+    float distance = length(toLight);
+	
+	// 설정한 range값보다 가까울 경우
+    if (distance <= lights[_nIndex].range)
+    {
+        
+        toLight /= distance;
+		
+        float diffuseFactor = dot(toLight, _normal);
+        if (diffuseFactor > EPSILON)
+        {
+            float3 reflectVec = reflect(-toLight, _normal);
+            float specularFactor = pow(max(dot(reflectVec, _toCamera), 0.0f), materialSpecular.a);
+            // 1/(x+y*d+z*d*d). distance = 0일 경우 1/x
+            float attenuationFactor = 1.0f / dot(lights[_nIndex].attenuation, float3(1.0f, distance, distance * distance));
+            return ((lights[_nIndex].diffuse * _objColors.diffuse * diffuseFactor) + (lights[_nIndex].specular * _objColors.specular * specularFactor)) * attenuationFactor;
+        }
+        else
+        {
+            return float4(0, 0, 0, 0);
+        }
+    }
+    else
+    {
+        return float4(0, 0, 0, 0);
+    }
+    return float4(0, 0, 0, 0);
+}
+float4 SpotLight2(int _nIndex, float3 _position, float3 _normal, float3 _toCamera, OBJColors _objColors)
+{
+    float3 toLight = lights[_nIndex].position - _position;
+    float fDistance = length(toLight);
+	
+    if (fDistance <= lights[_nIndex].range)
+    {
+        toLight /= fDistance;
+        float diffuseFactor = dot(toLight, _normal);
+        if (diffuseFactor > EPSILON)
+        {
+            float3 vReflect = reflect(-toLight, _normal);
+            float specularFactor = pow(max(dot(vReflect, _toCamera), 0.0f), materialSpecular.a);
+            // phi = 내부 원을 그리는 각의 cos값, theta - 외부 원을 그리는 각의 cos값
+		    // falloff = 감쇠비율.		
+		    // 빛과 점사이 각도와 빛의 방향을 내적
+            float alpha = max(dot(-toLight, lights[_nIndex].direction), 0.0f);
+				// 각에 따른 spot계수를 계산.
+            float spotFactor = pow(max(((alpha - lights[_nIndex].phi) / (lights[_nIndex].theta - lights[_nIndex].phi)), 0.0f), lights[_nIndex].falloff);
+                // 거리에 따른 감쇠계수를 계산.
+            float attenuationFactor = 1.0f / dot(lights[_nIndex].attenuation, float3(1.0f, fDistance, fDistance * fDistance));
+
+            // 각 계수를 구한 빛에 대해 곱
+            return ((lights[_nIndex].diffuse * _objColors.diffuse * diffuseFactor) + (lights[_nIndex].specular * _objColors.specular * specularFactor)) * attenuationFactor * spotFactor;
+        }
+        else
+        {
+            return float4(0, 0, 0, 0);
+        }
+    }
+    else
+    {
+        return float4(0, 0, 0, 0);
+    }
+    return float4(0.0f, 0.0f, 0.0f, 0.0f);
+}

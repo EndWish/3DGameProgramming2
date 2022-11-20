@@ -145,13 +145,15 @@ shared_ptr<BasicMesh> BasicMesh::LoadFromFile(ifstream& _file, const ComPtr<ID3D
 	UINT nUV;
 	_file.read((char*)&nUV, sizeof(UINT));	// uv의 개수 읽기
 
-	vector<float> textureCoords(2 * nUV);
-	_file.read((char*)textureCoords.data(), sizeof(float) * 2 * nUV);
-	// UV를 리소스로 만드는 과정
-	pNewMesh->pTextureCoordBuffer = CreateBufferResource(_pDevice, _pCommandList, textureCoords.data(), sizeof(float) * 2 * nUV, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, pNewMesh->pTextureCoordUploadBuffer);
-	pNewMesh->textureCoordBufferView.BufferLocation = pNewMesh->pTextureCoordBuffer->GetGPUVirtualAddress();
-	pNewMesh->textureCoordBufferView.StrideInBytes = sizeof(XMFLOAT2);
-	pNewMesh->textureCoordBufferView.SizeInBytes = sizeof(XMFLOAT2) * nUV;
+	if (0 < nUV) {
+		vector<float> textureCoords(2 * nUV);
+		_file.read((char*)textureCoords.data(), sizeof(float) * 2 * nUV);
+		// UV를 리소스로 만드는 과정
+		pNewMesh->pTextureCoordBuffer = CreateBufferResource(_pDevice, _pCommandList, textureCoords.data(), sizeof(float) * 2 * nUV, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, pNewMesh->pTextureCoordUploadBuffer);
+		pNewMesh->textureCoordBufferView.BufferLocation = pNewMesh->pTextureCoordBuffer->GetGPUVirtualAddress();
+		pNewMesh->textureCoordBufferView.StrideInBytes = sizeof(XMFLOAT2);
+		pNewMesh->textureCoordBufferView.SizeInBytes = sizeof(XMFLOAT2) * nUV;
+	}
 
 	// 서브메쉬 정보 읽기
 	UINT nSubMesh;
@@ -442,9 +444,20 @@ void TerrainMesh::CreateVertex(const XMFLOAT3& terrainSize, float _gridWidth, co
 			XMFLOAT3 position = { x * terrainSize.x / (nWidth - 1), 0 , z * terrainSize.z / (nLength - 1) };
 			//정점의 높이와 색상을 높이 맵으로부터 구한다. 
 			positions[i] = XMFLOAT3(position.x, heightMapImage.GetHeight(position.x, position.z), position.z);
-			normals[i] = heightMapImage.GetNormal(position.x, position.z);
 			textureCoords[i] = XMFLOAT2((float)x / nWidth, (float)z / nLength);
 			textureCoords2[i] = XMFLOAT2(position.x / _detailWidth, position.z / _detailWidth);
+		}
+	}
+	for (int i = 0, z = 0; z < nLength; z++) {
+		for (int x = 0; x < nWidth; x++, i++) {
+			XMFLOAT3 neighborPos[2];
+			neighborPos[0] = x < nWidth - 1 ? positions[z * nLength + (x + 1)] : positions[z * nLength + (x - 1)];
+			neighborPos[1] = z < nLength - 1 ? positions[(z + 1) * nLength + x] : positions[(z - 1) * nLength + x];
+
+			if((x != nWidth - 1 && z != nLength - 1) || (x == nWidth - 1 && z == nLength - 1))
+				normals[i] = Vector3::Normalize(Vector3::Cross(positions[i], neighborPos[1], neighborPos[0]));
+			else
+				normals[i] = Vector3::Normalize(Vector3::Cross(positions[i], neighborPos[0], neighborPos[1]));
 		}
 	}
 
@@ -583,7 +596,7 @@ shared_ptr<BillBoardMesh> BillBoardMesh::LoadFromFile(const string& _meshName, c
 
 	// 마테리얼 파일정보 만들기
 	VS_MaterialMappedFormat materialColors;
-	materialColors.diffuse = XMFLOAT4(0, 0, 0, 1);
+	materialColors.diffuse = XMFLOAT4(1, 1, 1, 1);
 	materialColors.ambient = XMFLOAT4(0, 0, 0, 1);
 	materialColors.emissive = XMFLOAT4(0, 0, 0, 1);
 	materialColors.specular = XMFLOAT4(0, 0, 0, 1);
