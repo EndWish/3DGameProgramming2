@@ -1,0 +1,20 @@
+스트림 출력할때 쉐이더:
+	렌더타겟 갯수를 0으로 설정
+	렌더타겟 포멧 : UNKNOWN
+	컴파일하는 hlsl설정
+	input layout 수정
+	D3D12_STREAM_OUTPUT_DESC작성[19:00]
+	d3dStreamOutputDesc.RasterizedStream = D3D12_SO_NO_RASTERIZED_STREAM;	//레스터 라이저로 출력안되도록
+그리기 위한 파이프라인을 가지는 쉐이더도 추가.
+
+파티클 메쉬:
+스트림 출력버퍼
+드로우 버퍼
+디폴트 버퍼필드 사이즈
+업로드 버퍼필드 사이즈
+리드백 버퍼필드 사이즈
+스트림 출력버퍼 뷰
+
+렌더를 하고난 후 스트림 출력버퍼와 드로우 버퍼를 바꿔져야 한다.
+
+
