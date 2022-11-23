@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Mesh.h"
+#include "GameObject.h"
 #include "GameFramework.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -70,6 +71,7 @@ Mesh::Mesh() {
 	primitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	nVertex = 0;
 	positionBufferView = D3D12_VERTEX_BUFFER_VIEW();
+	shaderIndex = SHADER_TYPE::NONE;
 }
 Mesh::~Mesh() {
 
@@ -95,6 +97,43 @@ void Mesh::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	}
 }
 
+void Mesh::SetShaderType(SHADER_TYPE _shaderIndex) {
+	if (shaderIndex != _shaderIndex) {
+		if (shaderIndex != SHADER_TYPE::NONE) {
+			// 쉐이더에서 자신을 가리키고 있던것을 끊는다.
+		}
+		if (_shaderIndex != SHADER_TYPE::NONE) {
+			// 쉐이더에서 자신을 연결시킨다.
+			Shader::GetShader(_shaderIndex)->AddMesh(shared_from_this());
+		}
+		shaderIndex = _shaderIndex;
+	}
+}
+
+void Mesh::AddDrawObject(const shared_ptr<GameObject>& _addObject) {
+	wpDrawObjects.push_back(_addObject);
+}
+void Mesh::RemoveDrawObject(const shared_ptr<GameObject>& _removeObject) {
+	wpDrawObjects.erase(ranges::find(wpDrawObjects, _removeObject, &weak_ptr<GameObject>::lock));
+}
+const vector<weak_ptr<GameObject>>& Mesh::GetDrawObjects() const {
+	return wpDrawObjects;
+}
+void Mesh::RenderWithDrawObjects(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+
+	auto func = [_pCommandList](const shared_ptr<GameObject>& _pDrawObject) {
+		if (_pDrawObject) {	// 해당 매쉬가 존재한다면
+			_pDrawObject->RenderOnce(_pCommandList);
+			return false;
+		}
+		else {	// 해당 매쉬가 지워졌을 경우
+			return true;
+		}
+	};
+	wpDrawObjects.erase(ranges::remove_if(wpDrawObjects, func, &weak_ptr<GameObject>::lock).begin(), wpDrawObjects.end());
+
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// 기본 메쉬
 
@@ -111,6 +150,11 @@ shared_ptr<BasicMesh> BasicMesh::LoadFromFile(ifstream& _file, const ComPtr<ID3D
 
 	// 메쉬가 존재한다면 공간을 할당하여 데이터를 채우자.
 	shared_ptr<BasicMesh> pNewMesh = make_shared<BasicMesh>();
+
+	// shaderType 읽기
+	SHADER_TYPE shaderType;
+	_file.read((char*)&shaderType, sizeof(UINT));
+	pNewMesh->SetShaderType(shaderType);
 
 	// 버텍스의 개수 읽기
 	_file.read((char*)&pNewMesh->nVertex, sizeof(UINT));
@@ -401,6 +445,8 @@ shared_ptr<TerrainMesh> TerrainMesh::LoadFromFile(const string& _heightMapfileNa
 
 	shared_ptr<TerrainMesh> pNewTerrainMesh = make_shared<TerrainMesh>();	// TerrainMesh 생성
 
+	pNewTerrainMesh->SetShaderType(SHADER_TYPE::Terrain);
+
 	pNewTerrainMesh->size = _terrainSize;	// 터레인의 가로,세로,높이 대입
 
 	XMFLOAT3 heightMapScale = { _terrainSize.x / _imageSize.x, _terrainSize.y / HeightMapImage::height , _terrainSize.z / _imageSize.y };
@@ -558,6 +604,8 @@ shared_ptr<BillBoardMesh> BillBoardMesh::LoadFromFile(const string& _meshName, c
 	// 메쉬가 존재한다면 공간을 할당하여 데이터를 채우자.
 	shared_ptr<BillBoardMesh> pNewMesh = make_shared<BillBoardMesh>();
 	pNewMesh->name = _meshName;
+	pNewMesh->SetShaderType(SHADER_TYPE::BillBoard);
+
 	pNewMesh->nVertex = 1;
 
 	pNewMesh->oobb = BoundingOrientedBox(XMFLOAT3(0,0,0), XMFLOAT3(_size.x / 2.f, _size.y / 2.f, 0), XMFLOAT4A(0.0f, 0.0f, 0.0f, 1.0f));

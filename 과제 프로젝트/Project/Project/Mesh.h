@@ -3,9 +3,11 @@
 #include "Shader.h"
 #include "Material.h"
 
+class GameObject;
+
 ///////////////////////////////////////////////////////////////////////////////
 /// 메쉬
-class Mesh {
+class Mesh : public enable_shared_from_this<Mesh> {
 public:
 	static shared_ptr<Mesh> LoadFromFile(ifstream& _file, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 
@@ -27,6 +29,9 @@ protected:
 	vector<shared_ptr<Material>> materials;
 	BoundingOrientedBox oobb;
 
+	vector<weak_ptr<GameObject>> wpDrawObjects;
+	SHADER_TYPE shaderIndex;
+
 public:		// 생성관련 멤버 함수▼
 	// 생성자 및 소멸자
 	Mesh();
@@ -39,6 +44,14 @@ public:		// 멤버 함수▼
 	const BoundingOrientedBox& GetOOBB() const;
 	//void LoadFromFile(const string& _fileName, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+
+	void SetShaderType(SHADER_TYPE _shaderIndex);
+	SHADER_TYPE GetShaderType() const { return shaderIndex; }
+	void AddDrawObject(const shared_ptr< GameObject>& _addObject);
+	void RemoveDrawObject(const shared_ptr< GameObject>& _removeObject);
+	const vector<weak_ptr<GameObject>>& GetDrawObjects() const;
+	void RenderWithDrawObjects(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////

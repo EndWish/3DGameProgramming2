@@ -96,6 +96,17 @@ enum WORLD_OBJ_LAYER {
 	NONE,
 };
 
+enum class SHADER_TYPE : UINT {
+	BASIC,
+	AlphaBlending,
+	HitBox,
+	Terrain,
+	BillBoard,
+	NUM,
+	NONE,
+};
+
+
 namespace Vector3 {
 
 	inline XMFLOAT3 Normalize(const XMFLOAT3& _vector) {

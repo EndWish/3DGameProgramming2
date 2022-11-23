@@ -83,7 +83,7 @@ void PlayScene::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12Gr
 	// 나무 생성
 	uniform_real_distribution<float> urd(0, 2'000.f);
 	for (int i = 0; i < 1'000; ++i) {
-		shared_ptr<GameObject> newTree = GameObjectManager::GetGameObject("Tree1", _pDevice, _pCommandList);
+		shared_ptr<GameObject> newTree = GameObjectManager::GetGameObject("Tree1");
 		XMFLOAT3 randomPos = XMFLOAT3(urd(rd), 0, urd(rd));
 		randomPos.y = pTerrainMesh->GetHeightMapImage().GetHeight(randomPos.x, randomPos.z);
 		if (randomPos.y < 200.f)
@@ -244,36 +244,43 @@ void PlayScene::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	// 조명 쉐이더 변수 업데이트
 	UpdateLightShaderVariables(_pCommandList);
 
-	// 기본 쉐이더 활성화
-	GameFramework& gameFramework = GameFramework::Instance();
-	Shader::GetBasicShader()->PrepareRender(_pCommandList);
-	for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER])	// 플레이어 드로우
-		if(pObject) pObject->Render(_pCommandList);
-	for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY])	// 적기 드로우
-		if(pObject) pObject->Render(_pCommandList);
-	for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER_ATTACK])
-		if (pObject) pObject->Render(_pCommandList);
-	for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY_ATTACK])
-		if (pObject) pObject->Render(_pCommandList);
-	
-	// 빌보드 그리기
-	Shader::GetBillBoardShader()->PrepareRender(_pCommandList);
-	for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::BILLBOARD])
-		if (pObject) pObject->Render(_pCommandList);
+	Shader::GetShader(SHADER_TYPE::BASIC)->Render(_pCommandList);
+	Shader::GetShader(SHADER_TYPE::BillBoard)->Render(_pCommandList);
+	Shader::GetShader(SHADER_TYPE::Terrain)->Render(_pCommandList);
 
-	// 터레인 그리기
-	Shader::GetTerrainShader()->PrepareRender(_pCommandList);
-	for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::TERRAIN])
-		if(pObject) pObject->Render(_pCommandList);
+	Shader::GetShader(SHADER_TYPE::AlphaBlending)->Render(_pCommandList);
+	Shader::RenderAlphaObjects(_pCommandList, camera->GetWorldPosition());
 
-	// NO-COLLIDER 그리기
-	Shader::GetAlphaBlendingShader()->PrepareRender(_pCommandList);
-	for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::NO_COLLIDER])
-		if (pObject) pObject->Render(_pCommandList);
+	//// 기본 쉐이더 활성화
+	//GameFramework& gameFramework = GameFramework::Instance();
+	//Shader::GetShader(SHADER_TYPE::BASIC)->PrepareRender(_pCommandList);
+	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER])	// 플레이어 드로우
+	//	if(pObject) pObject->Render(_pCommandList);
+	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY])	// 적기 드로우
+	//	if(pObject) pObject->Render(_pCommandList);
+	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER_ATTACK])
+	//	if (pObject) pObject->Render(_pCommandList);
+	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY_ATTACK])
+	//	if (pObject) pObject->Render(_pCommandList);
+	//
+	//// 빌보드 그리기
+	//Shader::GetShader(SHADER_TYPE::BillBoard)->PrepareRender(_pCommandList);
+	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::BILLBOARD])
+	//	if (pObject) pObject->Render(_pCommandList);
+
+	////// 터레인 그리기
+	//Shader::GetShader(SHADER_TYPE::Terrain)->PrepareRender(_pCommandList);
+	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::TERRAIN])
+	//	if(pObject) pObject->Render(_pCommandList);
+
+	//// NO-COLLIDER 그리기
+	//Shader::GetShader(SHADER_TYPE::AlphaBlending)->PrepareRender(_pCommandList);
+	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::NO_COLLIDER])
+	//	if (pObject) pObject->Render(_pCommandList);
 		
 	// 히트박스 렌더링
 	if (renderOOBBBox) {
-		Shader::GetHitBoxShader()->PrepareRender(_pCommandList);
+		Shader::GetShader(SHADER_TYPE::HitBox)->PrepareRender(_pCommandList);
 		for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER])
 			if (pObject) pObject->RenderHitBox(_pCommandList, *HitBoxMesh::GetHitBoxMesh());
 		for (const auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY])

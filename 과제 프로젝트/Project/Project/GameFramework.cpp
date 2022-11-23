@@ -26,19 +26,15 @@ void GameFramework::Create(HINSTANCE _hInstance, HWND _hMainWnd) {
 		::gnRtvDescriptorIncrementSize = gameFramework.pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		::gnDsvDescriptorIncrementSize = gameFramework.pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
-		// 최초씬 생성
-		shared_ptr<Scene> startScene = make_shared<PlayScene>(1);
-		gameFramework.PushScene(startScene);
-
 		// 쉐이더 생성
-		Shader::MakeBasicShader(gameFramework.pDevice, gameFramework.pRootSignature);
-		Shader::MakeAlphaBlendingShader(gameFramework.pDevice, gameFramework.pRootSignature);
-		Shader::MakeTerrainShader(gameFramework.pDevice, gameFramework.pRootSignature);
-		Shader::MakeBillBoardShader(gameFramework.pDevice, gameFramework.pRootSignature);
-		Shader::MakeHitBoxShader(gameFramework.pDevice, gameFramework.pRootSignature);
+		Shader::MakeShaders(gameFramework.pDevice, gameFramework.pRootSignature);
 
 		// 히트박스용 메쉬 생성
 		HitBoxMesh::MakeHitBoxMesh(gameFramework.pDevice, gameFramework.pCommandList);
+
+		// 최초씬 생성
+		shared_ptr<Scene> startScene = make_shared<PlayScene>(1);
+		gameFramework.PushScene(startScene);
 
 		gameFramework.pCommandList->Close();
 		vector<ComPtr<ID3D12CommandList>> pCommandLists = { gameFramework.pCommandList.Get() };

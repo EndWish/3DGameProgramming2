@@ -1,44 +1,47 @@
 #include "stdafx.h"
 #include "Shader.h"
+#include "Mesh.h"
+#include "GameObject.h"
 #include "GameFramework.h"
 
 // 정적 변수 및 함수
-shared_ptr<BasicShader> Shader::basicShader;
-shared_ptr<AlphaBlendingShader> Shader::alphaBlendingShader;
-shared_ptr<HitBoxShader> Shader::hitBoxShader;
-shared_ptr<TerrainShader> Shader::terrainShader;
-shared_ptr<BillBoardShader> Shader::billBoardShader;
+vector<shared_ptr<Shader>> Shader::shaders;
 
-void Shader::MakeBasicShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
-	basicShader = make_shared<BasicShader>(_pDevice, _pRootSignature);
+vector<weak_ptr<GameObject>> Shader::wpAlphaObjects;
+
+void Shader::MakeShaders(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
+	shaders.assign((int)SHADER_TYPE::NUM, {});
+	shaders[0] = make_shared<BasicShader>(_pDevice, _pRootSignature);
+	shaders[1] = make_shared<AlphaBlendingShader>(_pDevice, _pRootSignature);
+	shaders[2] = make_shared<HitBoxShader>(_pDevice, _pRootSignature);
+	shaders[3] = make_shared<TerrainShader>(_pDevice, _pRootSignature);
+	shaders[4] = make_shared<BillBoardShader>(_pDevice, _pRootSignature);
 }
-shared_ptr<BasicShader> Shader::GetBasicShader() {
-	return basicShader;
+shared_ptr<Shader> Shader::GetShader(SHADER_TYPE _shaderIndex) {
+	return shaders[(int)_shaderIndex];
 }
-void Shader::MakeAlphaBlendingShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
-	alphaBlendingShader = make_shared<AlphaBlendingShader>(_pDevice, _pRootSignature);
+
+void  Shader::AddAlphaObjects(const vector<weak_ptr<GameObject>>& _addObjects) {
+	wpAlphaObjects.insert(wpAlphaObjects.begin(), _addObjects.begin(), _addObjects.end());
 }
-shared_ptr<AlphaBlendingShader> Shader::GetAlphaBlendingShader() {
-	return alphaBlendingShader;
+void Shader::RenderAlphaObjects(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const XMFLOAT3& cameraPos) {
+	auto func = [cameraPos](const shared_ptr<GameObject>& a, const shared_ptr<GameObject>& b) {
+		return Vector3::Distance2(cameraPos, a->GetWorldPosition()) > Vector3::Distance2(cameraPos, b->GetWorldPosition());
+	};
+	ranges::sort(wpAlphaObjects, func, &weak_ptr<GameObject>::lock);
+
+	for (auto& wpAlphaObject : wpAlphaObjects) {
+		shared_ptr<GameObject> pAlphaObject = wpAlphaObject.lock();
+		if (pAlphaObject) {
+			// 사용할 쉐이더의 인덱스를 얻는다.
+			SHADER_TYPE shaderType = pAlphaObject->GetMesh()->GetShaderType();
+			Shader::GetShader(shaderType)->PrepareRender(_pCommandList);
+			pAlphaObject->RenderOnce(_pCommandList);
+		}
+	}
+	wpAlphaObjects.clear();
 }
-void Shader::MakeHitBoxShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
-	hitBoxShader = make_shared<HitBoxShader>(_pDevice, _pRootSignature);
-}
-shared_ptr<HitBoxShader> Shader::GetHitBoxShader() {
-	return hitBoxShader;
-}
-void Shader::MakeTerrainShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
-	terrainShader = make_shared<TerrainShader>(_pDevice, _pRootSignature);
-}
-shared_ptr<TerrainShader> Shader::GetTerrainShader() {
-	return terrainShader;
-}
-void Shader::MakeBillBoardShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
-	billBoardShader = make_shared<BillBoardShader>(_pDevice, _pRootSignature);
-}
-shared_ptr<BillBoardShader> Shader::GetBillBoardShader() {
-	return billBoardShader;
-}
+
 //////////////////// Shader
 
 Shader::Shader() {
@@ -128,6 +131,11 @@ void Shader::PrepareRender(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLis
 	}
 }
 
+void Shader::AddMesh(const shared_ptr<Mesh>& _pMesh) {
+	//pMeshes.emplace_back(_pMesh);
+	wpMeshes.push_back(_pMesh);
+}
+
 //////////////////// Basic Shader
 BasicShader::BasicShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
 
@@ -177,6 +185,20 @@ D3D12_INPUT_LAYOUT_DESC BasicShader::CreateInputLayout() {
 	inputLayoutDesc.NumElements = (UINT)inputElementDescs.size();
 
 	return inputLayoutDesc;
+}
+
+void BasicShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	PrepareRender(_pCommandList);
+	auto func = [_pCommandList](const shared_ptr<Mesh>& _pMesh) {
+		if (_pMesh) {	// 해당 매쉬가 존재한다면
+			_pMesh->RenderWithDrawObjects(_pCommandList);
+			return false;
+		}
+		else {	// 해당 매쉬가 지워졌을 경우
+			return true;
+		}
+	};
+	wpMeshes.erase(ranges::remove_if(wpMeshes, func, &weak_ptr<Mesh>::lock).begin(), wpMeshes.end());
 }
 
 //////////////////// AlphaBlending Shader
@@ -266,6 +288,20 @@ D3D12_DEPTH_STENCIL_DESC AlphaBlendingShader::CreateDepthStencilState() {
 	return depthStencilDesc;
 }
 
+void AlphaBlendingShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	// 애는 그릴 오브젝트를 정렬해 놓고 따로 그려야 한다.
+	auto func = [_pCommandList](const shared_ptr<Mesh>& _pMesh) {
+		if (_pMesh) {	// 해당 매쉬가 존재한다면
+			Shader::AddAlphaObjects(_pMesh->GetDrawObjects());
+			return false;
+		}
+		else {	// 해당 매쉬가 지워졌을 경우
+			return true;
+		}
+	};
+	wpMeshes.erase(ranges::remove_if(wpMeshes, func, &weak_ptr<Mesh>::lock).begin(), wpMeshes.end());
+}
+
 //////////////////// Terrain Shader
 TerrainShader::TerrainShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
 
@@ -316,6 +352,20 @@ D3D12_INPUT_LAYOUT_DESC TerrainShader::CreateInputLayout() {
 	inputLayoutDesc.NumElements = (UINT)inputElementDescs.size();
 
 	return inputLayoutDesc;
+}
+
+void TerrainShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	PrepareRender(_pCommandList);
+	auto func = [_pCommandList](const shared_ptr<Mesh>& _pMesh) {
+		if (_pMesh) {	// 해당 매쉬가 존재한다면
+			_pMesh->RenderWithDrawObjects(_pCommandList); // [수정] : 메쉬는 자신을 그릴 오브젝트에 대한 포인터로 모든 오브젝트를 그린다.
+			return false;
+		}
+		else {	// 해당 매쉬가 지워졌을 경우
+			return true;
+		}
+	};
+	wpMeshes.erase(ranges::remove_if(wpMeshes, func, &weak_ptr<Mesh>::lock).begin(), wpMeshes.end());
 }
 
 //////////////////// BillBoard Shader
@@ -370,6 +420,21 @@ D3D12_INPUT_LAYOUT_DESC BillBoardShader::CreateInputLayout() {
 	return inputLayoutDesc;
 }
 
+void BillBoardShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	PrepareRender(_pCommandList);
+	auto func = [_pCommandList](const shared_ptr<Mesh>& _pMesh) {
+		if (_pMesh) {	// 해당 매쉬가 존재한다면
+			_pMesh->RenderWithDrawObjects(_pCommandList);
+			return false;
+		}
+		else {	// 해당 매쉬가 지워졌을 경우
+			return true;
+		}
+	};
+	wpMeshes.erase(ranges::remove_if(wpMeshes, func, &weak_ptr<Mesh>::lock).begin(), wpMeshes.end());
+}
+
+
 /////////////////// HitBox Shader
 
 HitBoxShader::HitBoxShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
@@ -416,4 +481,8 @@ D3D12_INPUT_LAYOUT_DESC HitBoxShader::CreateInputLayout() {
 	inputLayoutDesc.NumElements = (UINT)inputElementDescs.size();
 
 	return inputLayoutDesc;
+}
+
+void HitBoxShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	// 아무것도 없음
 }

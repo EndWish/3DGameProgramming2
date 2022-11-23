@@ -1,5 +1,8 @@
 #pragma once
 
+class Mesh;
+class GameObject;
+
 class BasicShader;
 class AlphaBlendingShader;
 class HitBoxShader;
@@ -8,27 +11,21 @@ class BillBoardShader;
 
 class Shader {
 private:
-	static shared_ptr<BasicShader> basicShader;
-	static shared_ptr<AlphaBlendingShader> alphaBlendingShader;
-	static shared_ptr<HitBoxShader> hitBoxShader;
-	static shared_ptr<TerrainShader> terrainShader;
-	static shared_ptr<BillBoardShader> billBoardShader;
+	static vector<shared_ptr<Shader>> shaders;
+
+	static vector<weak_ptr<GameObject>> wpAlphaObjects;
 public:
-	static void MakeBasicShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
-	static shared_ptr<BasicShader> GetBasicShader();
-	static void MakeAlphaBlendingShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
-	static shared_ptr<AlphaBlendingShader> GetAlphaBlendingShader();
-	static void MakeHitBoxShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
-	static shared_ptr<HitBoxShader> GetHitBoxShader();
-	static void MakeTerrainShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
-	static shared_ptr<TerrainShader> GetTerrainShader();
-	static void MakeBillBoardShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
-	static shared_ptr<BillBoardShader> GetBillBoardShader();
+	static void MakeShaders(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
+	static shared_ptr<Shader> GetShader(SHADER_TYPE _shaderIndex);
+
+	static void AddAlphaObjects(const vector<weak_ptr<GameObject>>& _addObjects);
+	static void RenderAlphaObjects(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const XMFLOAT3& cameraPos);
 protected:
 	ComPtr<ID3DBlob> pVSBlob, pPSBlob;
 	ComPtr<ID3D12PipelineState> pPipelineState;
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc;
 	vector<D3D12_INPUT_ELEMENT_DESC> inputElementDescs;
+	vector<weak_ptr<Mesh>> wpMeshes;
 
 public:
 	// 생성 관련 함수들
@@ -43,8 +40,12 @@ public:
 	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() = 0;
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() = 0;
 
-	//
+	// 파이프라인 Set
 	virtual void PrepareRender(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+	// 매쉬 추가
+	void AddMesh(const shared_ptr<Mesh>& _pMesh);
+	// 그리기
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) = 0;
 
 };
 
@@ -57,6 +58,7 @@ public:
 	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() final;
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
 
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 };
 
 class AlphaBlendingShader : public Shader {
@@ -69,6 +71,8 @@ public:
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
 	virtual D3D12_BLEND_DESC CreateBlendState() final;
 	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState() final;
+
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 };
 
 class TerrainShader : public Shader {
@@ -80,6 +84,7 @@ public:
 	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() final;
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
 
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 };
 
 class BillBoardShader : public Shader {
@@ -91,6 +96,8 @@ public:
 
 	virtual D3D12_RASTERIZER_DESC CreateRasterizerState() final;
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
+
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 };
 
 class HitBoxShader : public Shader  {
@@ -101,5 +108,7 @@ public:
 
 	D3D12_RASTERIZER_DESC CreateRasterizerState() final;
 	D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
+
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 };
 

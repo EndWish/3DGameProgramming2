@@ -6,7 +6,6 @@
 bool IsOOBBTypeFinal(OOBB_TYPE _OOBBType) {
 	return _OOBBType == DISABLED_FINAL || _OOBBType == MESHOOBB_FINAL || _OOBBType == PRIVATEOOBB_FINAL;
 }
-
 bool IsOOBBTypeDisabled(OOBB_TYPE _OOBBType) {
 	return _OOBBType == DISABLED || _OOBBType == DISABLED_FINAL;
 }
@@ -219,6 +218,12 @@ void GameObject::SetChild(const shared_ptr<GameObject> _pChild) {
 	_pChild->wpParent = shared_from_this();
 }
 void GameObject::SetMesh(const shared_ptr<Mesh>& _pMesh, OOBB_TYPE _OOBBType) {
+	if (pMesh) {
+		pMesh->RemoveDrawObject(shared_from_this());
+	}
+	if (_pMesh) {
+		_pMesh->AddDrawObject(shared_from_this());
+	}
 	pMesh = _pMesh;
 	OOBBType = _OOBBType;
 }
@@ -341,15 +346,19 @@ void GameObject::Animate(float _timeElapsed) {
 void GameObject::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	if (pMesh) {	// 메쉬가 있을 경우에만 렌더링을 한다.
 		UpdateShaderVariable(_pCommandList);
-		// 사용할 쉐이더의 그래픽스 파이프라인을 설정한다 [수정요망]
-		
 		pMesh->Render(_pCommandList);
 	}
 	for (const auto& pChild : pChildren) {
 		pChild->Render(_pCommandList);
 	}
-
 }
+void GameObject::RenderOnce(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	if (pMesh) {	// 메쉬가 있을 경우에만 렌더링을 한다.
+		UpdateShaderVariable(_pCommandList);
+		pMesh->Render(_pCommandList);
+	}
+}
+
 void GameObject::RenderHitBox(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, HitBoxMesh& _hitBox) {
 	
 	if (!IsOOBBTypeDisabled(OOBBType)) {	// 메쉬가 있을 경우에만 렌더링을 한다.
@@ -392,6 +401,8 @@ void GameObject::CopyObject(const GameObject& _other) {
 	pPrivateOOBB = _other.pPrivateOOBB;
 
 	pMesh = _other.pMesh;
+	if (pMesh)
+		pMesh->AddDrawObject(shared_from_this());
 
 	for (int i = 0; i < _other.pChildren.size(); ++i) {
 		shared_ptr<GameObject> child = make_shared<GameObject>();
