@@ -57,6 +57,7 @@ void PlayScene::LoadObjects(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<I
 
 	// 아파치
 	GameObjectManager::LoadFromFile("Apache", _pDevice, _pCommandList);
+	GameObjectManager::LoadFromFile("Apache2", _pDevice, _pCommandList);
 
 	// 호수
 	GameObjectManager::LoadFromFile("Lake", _pDevice, _pCommandList);
@@ -165,17 +166,20 @@ void PlayScene::ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, floa
 			myDelta = (float)(currentMousePos.y - clickedLeftMousePos.y);
 			SetCursorPos(clickedLeftMousePos.x, clickedLeftMousePos.y);
 
-			if (mxDelta != 0.0f) {
-				//XMFLOAT3 upVector = pPlayer->GetCamera()->GetLocalUpVector();
-				pPlayer->GetCamera()->SynchronousRotation(XMFLOAT3(0, 1, 0), mxDelta / 3.f);
+			if (pPlayer->GetCamera()->GetType() == CAMERA_TYPE::THIRD) {
+				if (mxDelta != 0.0f) {
+					//XMFLOAT3 upVector = pPlayer->GetCamera()->GetLocalUpVector();
+					pPlayer->GetCamera()->SynchronousRotation(XMFLOAT3(0, 1, 0), mxDelta / 3.f);
+					pPlayer->GetCamera()->UpdateLocalTransform();
+				}
+				if (myDelta != 0.0f) {
+					XMFLOAT3 rightVector = pPlayer->GetCamera()->GetLocalRightVector();
+					pPlayer->GetCamera()->SynchronousRotation(rightVector, myDelta / 3.f);
+					pPlayer->GetCamera()->UpdateLocalTransform();
+				}
 				pPlayer->GetCamera()->UpdateLocalTransform();
 			}
-			if (myDelta != 0.0f) {
-				XMFLOAT3 rightVector = pPlayer->GetCamera()->GetLocalRightVector();
-				pPlayer->GetCamera()->SynchronousRotation(rightVector, myDelta / 3.f);
-				pPlayer->GetCamera()->UpdateLocalTransform();
-			}
-			pPlayer->GetCamera()->UpdateLocalTransform();
+
 		}
 
 		// 적용
@@ -250,33 +254,6 @@ void PlayScene::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 
 	Shader::GetShader(SHADER_TYPE::AlphaBlending)->Render(_pCommandList);
 	Shader::RenderAlphaObjects(_pCommandList, camera->GetWorldPosition());
-
-	//// 기본 쉐이더 활성화
-	//GameFramework& gameFramework = GameFramework::Instance();
-	//Shader::GetShader(SHADER_TYPE::BASIC)->PrepareRender(_pCommandList);
-	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER])	// 플레이어 드로우
-	//	if(pObject) pObject->Render(_pCommandList);
-	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY])	// 적기 드로우
-	//	if(pObject) pObject->Render(_pCommandList);
-	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::PLAYER_ATTACK])
-	//	if (pObject) pObject->Render(_pCommandList);
-	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::ENEMY_ATTACK])
-	//	if (pObject) pObject->Render(_pCommandList);
-	//
-	//// 빌보드 그리기
-	//Shader::GetShader(SHADER_TYPE::BillBoard)->PrepareRender(_pCommandList);
-	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::BILLBOARD])
-	//	if (pObject) pObject->Render(_pCommandList);
-
-	////// 터레인 그리기
-	//Shader::GetShader(SHADER_TYPE::Terrain)->PrepareRender(_pCommandList);
-	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::TERRAIN])
-	//	if(pObject) pObject->Render(_pCommandList);
-
-	//// NO-COLLIDER 그리기
-	//Shader::GetShader(SHADER_TYPE::AlphaBlending)->PrepareRender(_pCommandList);
-	//for (auto& pObject : ppObjects[WORLD_OBJ_LAYER::NO_COLLIDER])
-	//	if (pObject) pObject->Render(_pCommandList);
 		
 	// 히트박스 렌더링
 	if (renderOOBBBox) {

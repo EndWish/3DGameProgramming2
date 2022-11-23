@@ -22,14 +22,15 @@ shared_ptr<Camera> Player::GetCamera() const {
 }
 
 void Player::Create() {
-	Gunship::Create();
+	Apache::Create();
 
 	const ComPtr<ID3D12Device>& pDevice = GameFramework::GetDevice();
 	const ComPtr<ID3D12GraphicsCommandList>& pCommandList = GameFramework::GetCommandList();
 
 	pCamera = make_shared<Camera>();
 	pCamera->Create(pDevice, pCommandList);
-	pCamera->SetLocalPosition(XMFLOAT3(0.f, 0.f, -20.f));
+	//pCamera->SetLocalPosition(XMFLOAT3(0.f, 0.f, -20.f));
+	pCamera->SetType(CAMERA_TYPE::FIRST, XMFLOAT3(0.45f, 1.f, 3.f));
 	SetChild(pCamera);
 	pCamera->UpdateObject();
 

@@ -1,9 +1,10 @@
 #pragma once
 #include "GameObject.h"
-#include "Gunship.h"
+#include "Apache.h"
+#include "GunshipMissile.h"
 #include "Camera.h"
 
-class Player : public Gunship {
+class Player : public Apache {
 private:
 	shared_ptr<Camera> pCamera;
 

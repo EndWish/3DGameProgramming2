@@ -8,7 +8,7 @@ Camera::Camera() {
 	viewPort = { 0,0, 1920, 1080, 0, 1 };
 	scissorRect = { 0,0, 1920, 1080 };
 
-	type = THIRD;
+	type = CAMERA_TYPE::THIRD;
 }
 
 Camera::~Camera() {
@@ -69,10 +69,10 @@ void Camera::UpdateProjectionTransform(float _nearDistance, float _farDistance, 
 }
 
 void Camera::UpdateWorldTransform() {
-	if (type == FIRST) {
+	if (type == CAMERA_TYPE::FIRST) {
 		GameObject::UpdateWorldTransform();
 	}
-	else if(THIRD) {
+	else if(type == CAMERA_TYPE::THIRD) {
 		if (auto pParentLock = wpParent.lock()) {	// 부모가 있을 경우
 			worldTransform = Matrix4x4::Multiply(localTransform, Matrix4x4::MoveTransform(pParentLock->GetWorldPosition()));
 		}
@@ -81,6 +81,15 @@ void Camera::UpdateWorldTransform() {
 		}
 	}
 	UpdateViewTransform();
+}
+
+void Camera::SetType(CAMERA_TYPE _type, const XMFLOAT3& _localPos) {
+	type = _type;
+	localPosition = _localPos;
+}
+
+CAMERA_TYPE Camera::GetType() const {
+	return type;
 }
 
 

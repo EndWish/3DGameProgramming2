@@ -106,6 +106,10 @@ enum class SHADER_TYPE : UINT {
 	NONE,
 };
 
+enum class CAMERA_TYPE {
+	FIRST,
+	THIRD
+};
 
 namespace Vector3 {
 

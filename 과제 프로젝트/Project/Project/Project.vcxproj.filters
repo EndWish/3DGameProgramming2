@@ -84,6 +84,9 @@
     <ClInclude Include="Unit.h">
       <Filter>헤더 파일\GameObjects</Filter>
     </ClInclude>
+    <ClInclude Include="Apache.h">
+      <Filter>헤더 파일\GameObjects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Project.cpp">
@@ -141,6 +144,9 @@
       <Filter>소스 파일\GameObjects</Filter>
     </ClCompile>
     <ClCompile Include="Unit.cpp">
+      <Filter>소스 파일\GameObjects</Filter>
+    </ClCompile>
+    <ClCompile Include="Apache.cpp">
       <Filter>소스 파일\GameObjects</Filter>
     </ClCompile>
   </ItemGroup>

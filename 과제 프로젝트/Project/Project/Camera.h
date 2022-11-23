@@ -1,11 +1,6 @@
 #pragma once
 #include "GameObject.h"
 
-enum CameraType {
-	FIRST,
-	THIRD
-};
-
 struct VS_CameraMappedFormat {
 	XMFLOAT4X4 view;
 	XMFLOAT4X4 projection;
@@ -23,7 +18,7 @@ protected:
 	ComPtr<ID3D12Resource> pCameraBuffer;
 	shared_ptr<VS_CameraMappedFormat> pMappedCamera;
 
-	int type;
+	CAMERA_TYPE type;
 
 public:
 	Camera();
@@ -38,4 +33,6 @@ public:
 
 	virtual void UpdateWorldTransform();
 
+	void SetType(CAMERA_TYPE _type, const XMFLOAT3& _localPos);
+	CAMERA_TYPE GetType() const;
 };
