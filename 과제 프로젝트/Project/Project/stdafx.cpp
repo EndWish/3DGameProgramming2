@@ -21,6 +21,8 @@ void ReadStringBinary(string& _dest, ifstream& _file){
 		_dest.clear();
 	}
 }
+
+// 리소스 생성
 ComPtr<ID3D12Resource> CreateBufferResource(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, void* _pData, UINT _byteSize, D3D12_HEAP_TYPE _heapType, D3D12_RESOURCE_STATES _resourceStates, const ComPtr<ID3D12Resource>& _pUploadBuffer) {
 	ComPtr<ID3D12Resource> pBuffer;
 
@@ -76,7 +78,11 @@ ComPtr<ID3D12Resource> CreateBufferResource(const ComPtr<ID3D12Device>& _pDevice
 			pBuffer->Unmap(0, NULL);
 		}
 		else if (_heapType == D3D12_HEAP_TYPE_READBACK) {
-
+			D3D12_RANGE readRange = { 0, 0 };
+			shared_ptr<UINT8> pBufferDataBegin;
+			hResult = pBuffer->Map(0, &readRange, (void**)&pBufferDataBegin);
+			memcpy(pBufferDataBegin.get(), _pData, _byteSize);
+			pBuffer->Unmap(0, NULL);
 		}
 	}
 
@@ -144,6 +150,18 @@ ComPtr<ID3D12Resource> CreateTextureResourceFromDDSFile(const ComPtr<ID3D12Devic
 	//	delete[] pd3dSubResourceData;
 
 	return(pd3dTexture);
+}
+
+// 리소스 배리어
+void SynchronizeResourceTransition(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const ComPtr<ID3D12Resource>& _pResource, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	D3D12_RESOURCE_BARRIER resourceBarrier;
+	resourceBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	resourceBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	resourceBarrier.Transition.pResource = _pResource.Get();
+	resourceBarrier.Transition.StateBefore = stateBefore;
+	resourceBarrier.Transition.StateAfter = stateAfter;
+	resourceBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	_pCommandList->ResourceBarrier(1, &resourceBarrier);
 }
 
 //xmfloat 출력하기

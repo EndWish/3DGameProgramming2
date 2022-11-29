@@ -23,6 +23,10 @@ double Timer::GetTimeElapsed() const {
 	return timeElapsed;
 }
 
+float Timer::GetTotalTime() const {
+	return (float)totalFrequency;
+}
+
 int Timer::GetFPS() const {
 	return (int)frameTimes.size() + 1;
 

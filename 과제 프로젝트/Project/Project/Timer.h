@@ -20,6 +20,7 @@ public:
 	~Timer();
 
 	double GetTimeElapsed() const;
+	float GetTotalTime() const;
 	int GetFPS() const;
 	bool IsPaused() const;
 	

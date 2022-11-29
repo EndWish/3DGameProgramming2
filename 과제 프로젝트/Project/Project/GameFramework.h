@@ -2,6 +2,11 @@
 #include "Timer.h"
 #include "Scene.h"
 
+struct CB_FRAMEWORK_INFO {
+	float currentTime;
+	float elapsedTime;
+};
+
 class GameFramework {
 // 정적 변수 
 private:
@@ -55,6 +60,10 @@ private:
 	// 루트 시그니처
 	ComPtr<ID3D12RootSignature> pRootSignature;
 
+	// 쉐이더 변수
+	ComPtr<ID3D12Resource> pcbFrameworkInfo;
+	shared_ptr<CB_FRAMEWORK_INFO> pcbMappedFrameworkInfo;
+
 	// 게임 타이머
 	Timer gameTimer;
 
@@ -106,4 +115,8 @@ public:
 	void PopScene();
 	void ChangeScene(const shared_ptr<Scene>& _pScene);
 	void ClearScene();
+
+	// 쉐이더 변수 관련 함수
+	void CreateShaderVariables();
+	void UpdateShaderVariables();
 };

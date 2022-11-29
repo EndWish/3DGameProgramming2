@@ -26,8 +26,10 @@ void GameFramework::Create(HINSTANCE _hInstance, HWND _hMainWnd) {
 		::gnRtvDescriptorIncrementSize = gameFramework.pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		::gnDsvDescriptorIncrementSize = gameFramework.pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
+		gameFramework.CreateShaderVariables();	// 쉐이더 변수 맵핑
+
 		// 쉐이더 생성
-		Shader::MakeShaders(gameFramework.pDevice, gameFramework.pRootSignature);
+		Shader::MakeShaders(gameFramework.pDevice, gameFramework.pCommandList, gameFramework.pRootSignature);
 
 		// 히트박스용 메쉬 생성
 		HitBoxMesh::MakeHitBoxMesh(gameFramework.pDevice, gameFramework.pCommandList);
@@ -316,7 +318,7 @@ void GameFramework::CreateGraphicsRootSignature() {
 
 	// 루트 파라매터
 	HRESULT hResult;
-	D3D12_ROOT_PARAMETER pRootParameters[11];
+	D3D12_ROOT_PARAMETER pRootParameters[12];
 
 	// 변수 부분
 	pRootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -339,6 +341,11 @@ void GameFramework::CreateGraphicsRootSignature() {
 	pRootParameters[3].Descriptor.ShaderRegister = 4; // Material
 	pRootParameters[3].Descriptor.RegisterSpace = 0;
 	pRootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	pRootParameters[11].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	pRootParameters[11].Descriptor.ShaderRegister = 5; // Material
+	pRootParameters[11].Descriptor.RegisterSpace = 0;
+	pRootParameters[11].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	// 텍스쳐 부분
 	pRootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -406,7 +413,7 @@ void GameFramework::CreateGraphicsRootSignature() {
 	pd3dSamplerDescs[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	// 루트 시그니쳐 생성
-	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT; // | D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS | D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS;
+	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | D3D12_ROOT_SIGNATURE_FLAG_ALLOW_STREAM_OUTPUT; // | D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS | D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS;
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc;
 	::ZeroMemory(&rootSignatureDesc, sizeof(D3D12_ROOT_SIGNATURE_DESC));
 	rootSignatureDesc.NumParameters = _countof(pRootParameters);
@@ -446,6 +453,7 @@ POINT GameFramework::GetClickedLeftMousePos() const {
 void GameFramework::FrameAdvance() {
 
 	gameTimer.Tick(.0f);
+
 	ProcessInput();
 	// 씬 진행(애니메이트). 스택의 맨 위 원소에 대해 진행
 	if (!pScenes.empty()) {
@@ -489,6 +497,7 @@ void GameFramework::FrameAdvance() {
 	pCommandList->SetGraphicsRootSignature(pRootSignature.Get());
 
 	//씬 렌더링  (Scene에서 카메라, 플레이어를 관리한다.)
+	UpdateShaderVariables();
 	if (!pScenes.empty()) {
 		pScenes.top()->Render(pCommandList);
 	}
@@ -635,3 +644,17 @@ void GameFramework::ClearScene() {
 	}
 }
 
+// 쉐이더 변수
+void GameFramework::CreateShaderVariables() {
+	UINT ncbElementBytes = ((sizeof(CB_FRAMEWORK_INFO) + 255) & ~255); //256의 배수
+	pcbFrameworkInfo = ::CreateBufferResource(pDevice.Get(), pCommandList.Get(), NULL, ncbElementBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_GENERIC_READ, NULL);
+
+	pcbFrameworkInfo->Map(0, NULL, (void**)&pcbMappedFrameworkInfo);
+}
+void GameFramework::UpdateShaderVariables() {
+	pcbMappedFrameworkInfo->currentTime = gameTimer.GetTotalTime();
+	pcbMappedFrameworkInfo->elapsedTime = (float)gameTimer.GetTimeElapsed();
+
+	D3D12_GPU_VIRTUAL_ADDRESS d3dGpuVirtualAddress = pcbFrameworkInfo->GetGPUVirtualAddress();
+	pCommandList->SetGraphicsRootConstantBufferView(11, d3dGpuVirtualAddress);
+}

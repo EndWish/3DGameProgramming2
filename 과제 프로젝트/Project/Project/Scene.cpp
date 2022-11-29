@@ -125,7 +125,14 @@ void PlayScene::ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, floa
 	if (pPlayer) {
 		// 키보드 처리
 		if (_keysBuffers['E'] & 0xF0) {
+			VS_ParticleMappedFormat newParticle;
+			newParticle.boardSize = XMFLOAT2(10, 10);
+			newParticle.lifetime = 1.f;
+			newParticle.position = Vector3::Add(pPlayer->GetWorldPosition(), pPlayer->GetWorldLookVector(), 50.f);
+			newParticle.type = PARTICLE_TYPE_WRECK;
+			newParticle.velocity = XMFLOAT3(0.f, 5.f, 0.f);
 
+			Shader::AddParticle(newParticle);
 		}
 		if (_keysBuffers['Q'] & 0xF0) {
 			pPlayer->TryFireMissile();
@@ -251,6 +258,8 @@ void PlayScene::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	Shader::GetShader(SHADER_TYPE::BASIC)->Render(_pCommandList);
 	Shader::GetShader(SHADER_TYPE::BillBoard)->Render(_pCommandList);
 	Shader::GetShader(SHADER_TYPE::Terrain)->Render(_pCommandList);
+
+	Shader::RenderParticle(_pCommandList);	// 파티클을 그린다.
 
 	Shader::GetShader(SHADER_TYPE::AlphaBlending)->Render(_pCommandList);
 	Shader::RenderAlphaObjects(_pCommandList, camera->GetWorldPosition());

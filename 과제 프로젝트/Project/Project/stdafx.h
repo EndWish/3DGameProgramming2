@@ -73,6 +73,9 @@ void ReadStringBinary(string& _dest, ifstream& _file);
 ComPtr<ID3D12Resource> CreateBufferResource(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, void* _pData, UINT _byteSize, D3D12_HEAP_TYPE _heapType, D3D12_RESOURCE_STATES _resourceStates, const ComPtr<ID3D12Resource>& _pUploadBuffer);
 ComPtr<ID3D12Resource> CreateTextureResourceFromDDSFile(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const wstring _fileName, const ComPtr<ID3D12Resource>& _pUploadBuffer, D3D12_RESOURCE_STATES d3dResourceStates);
 
+// 리소스 배리어
+void SynchronizeResourceTransition(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const ComPtr<ID3D12Resource>& _pResource, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
+
 //xmfloat 출력하기
 std::ostream& operator<<(std::ostream& os, const XMFLOAT3& f3);
 std::ostream& operator<<(std::ostream& os, const XMFLOAT4& f4);
@@ -102,6 +105,8 @@ enum class SHADER_TYPE : UINT {
 	HitBox,
 	Terrain,
 	BillBoard,
+	ParticleStreamOut,
+	ParticleDraw,
 	NUM,
 	NONE,
 };

@@ -8,6 +8,12 @@ cbuffer cbGameObjectInfo : register(b2) {
 	matrix worldTransform : packoffset(c0);
 };
 
+cbuffer cbFrameworkInfo : register(b5)
+{
+    float currentTime : packoffset(c0.x);
+    float elapsedTime : packoffset(c0.y);
+};
+
 #define MATERIAL_ALBEDO_MAP			0x01
 #define MATERIAL_SPECULAR_MAP		0x02
 #define MATERIAL_NORMAL_MAP			0x04
@@ -40,6 +46,8 @@ float4 CalculateLight2(float3 _Position, float3 _Normal, OBJColors _objColors);
 float4 DirectionalLight2(int _nIndex, float3 _normal, float3 _toCamera, OBJColors _objColors);
 float4 PointLight2(int _nIndex, float3 _position, float3 _normal, float3 _toCamera, OBJColors _objColors);
 float4 SpotLight2(int _nIndex, float3 _position, float3 _normal, float3 _toCamera, OBJColors _objColors);
+
+float3 RandomDirection(float seedOffset);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Basic
@@ -286,7 +294,172 @@ float4 BillBoardPixelShader(GS_BILLBOARD_OUTPUT input) : SV_TARGET
     return color; 
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ParticleStreamOut
+#define GRAVITY 9.8
 
+#define PARTICLE_TYPE_WRECK		0
+#define PARTICLE_TYPE_SPARK		1
+
+#define SPARK_LIFETIME 3.f
+#define SPARK_BOARDSIZE float2(2.0, 2.0)
+
+struct VS_PARTICLE_INPUT
+{
+    float3 position : POSITION;
+    float3 velocity : VELOCITY;
+    float2 boardSize : BOARDSIZE;
+    float lifetime : LIFETIME;
+    uint type : PARTICLETYPE;
+};
+
+VS_PARTICLE_INPUT ParticleStreamOutVertexShader(VS_PARTICLE_INPUT input)
+{
+    return input;
+}
+
+void WreckParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream);
+void SparkParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream);
+
+
+
+[maxvertexcount(10)] // sizeof(VS_PARTICLE_INPUT) 와 maxvertexcount 를 곱해서 1024바이트를 넘으면 안된다.
+void ParticleStreamOutGeometryShader(point VS_PARTICLE_INPUT input[1], inout PointStream<VS_PARTICLE_INPUT> outStream)
+{
+    VS_PARTICLE_INPUT particle = input[0];
+    if (particle.type == PARTICLE_TYPE_WRECK)
+        WreckParticles(particle, outStream);
+    else if (particle.type == PARTICLE_TYPE_SPARK)
+        SparkParticles(particle, outStream);
+    
+}
+
+void WreckParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream)
+{
+    // 수명이 남아 있으면 이동시키고(중력의 영향을 받도록 한다.), 
+    if (input.lifetime > 0.0f)  // 수명이 남아있을 경우
+    {
+        input.lifetime -= elapsedTime;
+        input.position += input.velocity * elapsedTime;
+        input.velocity.y += -GRAVITY * elapsedTime; // 중력가속도를 시간에 곱해서 y속도에 더해준다.
+        outStream.Append(input);
+    }
+    else    // 수명이 다했을 경우
+    {
+        //수명이 다하면 새로운 파티클 들을 추가한다.
+        for (int i = 0; i < 10; ++i)
+        {
+            VS_PARTICLE_INPUT newParticle;
+            newParticle.type = PARTICLE_TYPE_SPARK;
+            newParticle.boardSize = SPARK_BOARDSIZE;
+            newParticle.lifetime = SPARK_LIFETIME;
+            newParticle.position = input.position;
+            newParticle.velocity = RandomDirection(i) * 50.f;
+            outStream.Append(newParticle);
+        }
+    }
+    
+}
+void SparkParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream)
+{
+     // 수명이 남아 있으면 이동시키고(중력의 영향을 받도록 한다.), 
+    if (input.lifetime > 0.0f)  // 수명이 남아있을 경우
+    {
+        input.lifetime -= elapsedTime;
+        input.boardSize = SPARK_BOARDSIZE * (input.lifetime / SPARK_LIFETIME);
+        input.position += input.velocity * elapsedTime;
+        input.velocity.y += -GRAVITY * elapsedTime; // 중력가속도를 시간에 곱해서 y속도에 더해준다.
+        outStream.Append(input);
+    }
+}
+
+float3 RandomDirection(float seedOffset)
+{
+    float seed = currentTime + seedOffset * seedOffset;
+    float3 direction;
+    
+    direction.x = frac(seed);
+    direction.y = frac(seed + 1.f);
+    direction.z = frac(seed + 2.f);
+    normalize(direction);
+    return direction;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ParticleDraw
+
+struct VS_PARTICLE_OUTPUT
+{
+    float3 positionW : POSITION;
+    float2 boardSize : BOARDSIZE;
+    float3 normal : NORMAL;
+    uint type : PARTICLETYPE;
+    float lifetime : LIFETIME;
+};
+
+struct GS_PARTICLE_OUTPUT
+{
+    float3 positionW : POSITION;
+    float4 position : SV_POSITION;
+    float3 normal : NORMAL;
+    float2 uv : TEXCOORD;
+    uint type : PARTICLETYPE;
+    float lifetime : LIFETIME;
+};
+
+VS_PARTICLE_OUTPUT ParticleDrawVertexShader(VS_PARTICLE_INPUT input)
+{
+    VS_PARTICLE_OUTPUT output;
+    
+    output.positionW = input.position;
+    output.boardSize = input.boardSize;
+
+    output.normal = cameraPosition - output.positionW;
+    output.normal = normalize(output.normal);
+    
+    output.type = input.type;
+    output.lifetime = input.lifetime;
+    
+    return output;
+}
+
+[maxvertexcount(4)]
+void ParticleDrawGeometryShader(point VS_PARTICLE_OUTPUT input[1], inout TriangleStream<GS_PARTICLE_OUTPUT> outStream)
+{
+    GS_PARTICLE_OUTPUT output;
+    output.normal = input[0].normal;
+    output.type = input[0].type;
+    output.lifetime = input[0].lifetime;
+    
+    float3 rightVector = normalize(cross(float3(0, 1, 0), input[0].normal)); // Y축과 look벡터 외적해서 rightVector를 얻는다.
+    float3 upVector = normalize(cross(input[0].normal, rightVector)); //
+    
+    float3 dxOffset = rightVector * input[0].boardSize.x / 2.0f;
+    float3 dyOffset = upVector * input[0].boardSize.y / 2.0f;
+    
+     // 시계방향이 앞쪽
+    float3 dx[4] = { -dxOffset, dxOffset, -dxOffset, dxOffset };
+    float3 dy[4] = { -dyOffset, -dyOffset, dyOffset, dyOffset };
+    float2 uv[4] = { float2(1, 1 - 0), float2(0, 1 - 0), float2(1, 1 - 1), float2(0, 1 - 1) };
+    for (int i = 0; i < 4; ++i)
+    {
+        output.positionW = input[0].positionW + dx[i] + dy[i];
+        output.position = mul(mul(float4(output.positionW, 1.0f), view), projection);
+        output.uv = uv[i];
+        outStream.Append(output);
+    }
+}
+
+float4 ParticleDrawPixelShader(GS_PARTICLE_OUTPUT input) : SV_TARGET
+{
+    // type을 이용하여 원하는 텍스처를 선택 [수정]
+    //float4 color = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
+    float4 color = float4(input.lifetime, 0, 0, 1);
+    
+    if (color.a < 0.1f)
+        discard;
+    return color;
+}
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
