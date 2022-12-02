@@ -31,6 +31,7 @@ void Player::Create() {
 	pCamera->Create(pDevice, pCommandList);
 	//pCamera->SetLocalPosition(XMFLOAT3(0.f, 0.f, -20.f));
 	pCamera->SetType(CAMERA_TYPE::FIRST, XMFLOAT3(0.45f, 1.f, 3.f));
+	pCamera->SetType(CAMERA_TYPE::THIRD, XMFLOAT3(0.f, 0.f, -20.f));
 	SetChild(pCamera);
 	pCamera->UpdateObject();
 

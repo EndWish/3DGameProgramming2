@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Shader.h"
+#include "Texture.h"
 #include "Mesh.h"
 #include "GameObject.h"
 #include "GameFramework.h"
@@ -22,6 +23,9 @@ ParticleResource Shader::particleResource = ParticleResource();
 //8. defaultStreamInputBufferView와 defaultStreamOutputBufferView와 defaultDrawBufferView의 BufferLocation을 수정한다.
 
 void ParticleResource::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	// UINT ncbElementBytes = ((sizeof(CB_FRAMEWORK_INFO) + 255) & ~255); //256의 배수
+	// 256의 배수로 안만들어서?
+	
 	// 스트림 아웃풋 리소스 생성
 	UINT nStride = (UINT)(sizeof(VS_ParticleMappedFormat));
 	nDefaultStreamInputParticle = 0;
@@ -34,11 +38,12 @@ void ParticleResource::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<I
 
 	// 파티클의 개수를 저장/쓰기/읽기위한 리소스 생성
 	defaultBufferFilledSize = ::CreateBufferResource(_pDevice, _pCommandList, NULL, sizeof(UINT), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_STREAM_OUT, NULL);
-	uploadBufferFilledSize = ::CreateBufferResource(_pDevice, _pCommandList, &nDefaultStreamInputParticle, sizeof(UINT), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_COPY_SOURCE, NULL);
+	uploadBufferFilledSize = ::CreateBufferResource(_pDevice, _pCommandList, &nDefaultStreamInputParticle, sizeof(UINT), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ | D3D12_RESOURCE_STATE_COPY_SOURCE, NULL);
 	readBackBufferFilledSize = ::CreateBufferResource(_pDevice, _pCommandList, NULL, sizeof(UINT), D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST, NULL);
 
 	// 업로드 인풋 버퍼 뷰 설정 및 매핑
 	uploadStreamInputBuffer->Map(0, NULL, (void**)&mappedUploadStreamInputBuffer);	// 업로드 버퍼 맵핑
+	uploadStreamInputBuffer->Unmap(0, NULL);	// 업로드 버퍼 맵핑
 	uploadStreamInputBufferView.BufferLocation = uploadStreamInputBuffer->GetGPUVirtualAddress();
 	uploadStreamInputBufferView.SizeInBytes = nStride * nMaxParticle;
 	uploadStreamInputBufferView.StrideInBytes = nStride;
@@ -66,17 +71,38 @@ void ParticleResource::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<I
 	SynchronizeResourceTransition(_pCommandList, defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_COPY_DEST);
 	_pCommandList->CopyResource(defaultBufferFilledSize.Get(), uploadBufferFilledSize.Get());
 	SynchronizeResourceTransition(_pCommandList, defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_STREAM_OUT);
+
+	
+	// 서술자 힙  생성
+	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc;
+	descriptorHeapDesc.NumDescriptors = 1; // SRVs 
+	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descriptorHeapDesc.NodeMask = 0;
+	_pDevice->CreateDescriptorHeap(&descriptorHeapDesc, __uuidof(ID3D12DescriptorHeap), (void**)textureDescriptorHeap.GetAddressOf());
+
+	// 쉐이더의 텍스쳐 가져오기
+	texture = make_shared<Texture>();
+	texture = Texture::Load(L"Particles.dds", RESOURCE_TEXTURE2D, PARAMETER_STANDARD_TEXTURE + MATERIAL_ALBEDO_MAP_INDEX, MATERIAL_ALBEDO_MAP, _pDevice, _pCommandList);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc = texture->GetShaderResourceViewDesc();
+	_pDevice->CreateShaderResourceView(texture->GetTextureBuffer().Get(), &shaderResourceViewDesc, textureDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	texture->SetGpuDescriptorHandle(textureDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	
 }
+void ParticleResource::ReadFilledSize(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	size_t nStride = sizeof(VS_ParticleMappedFormat);
+	
+	//4-2. 스트림 출력의 결과로 생긴 파티클의 개수를 저장한다.
+	//SynchronizeResourceTransition(_pCommandList, defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	//_pCommandList->CopyResource(readBackBufferFilledSize.Get(), defaultBufferFilledSize.Get());
+	//SynchronizeResourceTransition(_pCommandList, defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_STREAM_OUT);
 
-
-//UINT64 Shader::nParticle = 0;
-//ComPtr<ID3D12Resource> Shader::uploadStreamInputBuffer, Shader::particleDrawBuffer;	// streamOutBuffer : 스트림 출력단계의 입력이 되는 버퍼, 출력이 되는 버퍼 + 그려는 파티클들의 버퍼 : particleDrawBuffer
-//shared_ptr<VS_ParticleMappedFormat[Shader::nMaxParticle]> Shader::mappedStreamOutBuffer;	// streamOutBuffer에 값을 쓸 수 있도록 upload로 생성하여 맵한다.
-//D3D12_VERTEX_BUFFER_VIEW Shader::streamInputBufferView;	// 스트림 출력의 입력으로 쓸 리소스에 대한 뷰
-//D3D12_STREAM_OUTPUT_BUFFER_VIEW Shader::streamOutputBufferView;	// 스트림 출력이 써질 버퍼(=particleDrawBuffer)
-//D3D12_VERTEX_BUFFER_VIEW Shader::particleDrawBufferView;	// 파티클을 그리기 위한 버퍼뷰
-//ComPtr<ID3D12Resource> Shader::defaultBufferFilledSize, Shader::defaultBufferFilledSizeZero, Shader::readBackBufferFilledSize, Shader::uploadBufferFilledSize;
-//shared_ptr<UINT64> Shader::mappedReadBackBufferFilledSize;
+	//readBackBufferFilledSize->Map(0, NULL, (void**)&mappedReadBackBufferFilledSize);
+	nDefaultStreamOutputParticle += (*mappedReadBackBufferFilledSize) / nStride;
+	cout << "파티클이 써진 개수 : " << nDefaultStreamOutputParticle << "\n";
+	//readBackBufferFilledSize->Unmap(0, NULL);
+}
 
 void Shader::MakeShaders(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
 	shaders.assign((int)SHADER_TYPE::NUM, {});
@@ -119,15 +145,42 @@ void Shader::RenderAlphaObjects(const ComPtr<ID3D12GraphicsCommandList>& _pComma
 //  StreamOutput과 관련된 함수들
 void Shader::AddParticle(const VS_ParticleMappedFormat& _particle) {
 	UINT& nParticle = particleResource.nUploadStreamInputParticle;
-	if (nParticle + particleResource.nDefaultStreamInputParticle  < particleResource.nMaxParticle) {
+	if (nParticle < particleResource.nMaxParticle) {
+		particleResource.uploadStreamInputBuffer->Map(0, NULL, (void**)&particleResource.mappedUploadStreamInputBuffer);	// 업로드 버퍼 맵핑
 		memcpy(&particleResource.mappedUploadStreamInputBuffer[nParticle], &_particle, sizeof(VS_ParticleMappedFormat));
-		//mappedStreamOutBuffer[nParticle] = _particle;
+		particleResource.uploadStreamInputBuffer->Unmap(0, NULL);	// 업로드 버퍼 맵핑
 		++nParticle;
 		cout << nParticle << "에 새로운 파티클 추가\n";
 	}
 }
 void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+
+
 	size_t nStride = sizeof(VS_ParticleMappedFormat);
+
+	particleResource.readBackBufferFilledSize->Map(0, NULL, (void**)&particleResource.mappedReadBackBufferFilledSize);
+	particleResource.nDefaultStreamOutputParticle += (*particleResource.mappedReadBackBufferFilledSize) / nStride;
+	cout << "전체 출력해야될 개수 : " << particleResource.nDefaultStreamOutputParticle << "\n";
+	particleResource.readBackBufferFilledSize->Unmap(0, NULL);
+
+	//5. defaultDrawBuffer를 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER로 바꾼다.  defaultDrawBuffer를 입력으로 렌더링을 수행한다.
+	SynchronizeResourceTransition(_pCommandList, particleResource.defaultDrawBuffer.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	if (0 < particleResource.nDefaultStreamOutputParticle) {
+		Shader::GetShader(SHADER_TYPE::ParticleDraw)->Render(_pCommandList);
+	}
+
+	if (1) {
+		//6. 두개의 포인터를 바꾼다. 파티클의 개수도 바꿔준다.
+
+
+		swap(particleResource.defaultDrawBuffer, particleResource.defaultStreamInputBuffer);
+		cout << particleResource.nDefaultStreamInputParticle << " = " << particleResource.nDefaultStreamOutputParticle << "\n";
+		particleResource.nDefaultStreamInputParticle = particleResource.nDefaultStreamOutputParticle;	// 이번에 출력개수가 다음의 입력개수가 된다.
+		particleResource.defaultStreamInputBufferView.BufferLocation = particleResource.defaultStreamInputBuffer->GetGPUVirtualAddress();
+		particleResource.defaultDrawBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress();
+		particleResource.defaultStreamOutputBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress();
+		particleResource.defaultStreamOutputBufferView.SizeInBytes = nStride * particleResource.nMaxParticle;
+	}
 
 	//1. uploadStreamInputBuffer에 파티클을 추가한다.nUploadStreamInputParticle을 추가한 개수만큼 증가시킨다.
 	
@@ -137,29 +190,36 @@ void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLi
 	SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_STREAM_OUT);
 	particleResource.nDefaultStreamOutputParticle = 0;
 
+
 	//3. defaultDrawBuffer의 상태를 D3D12_RESOURCE_STATE_STREAM_OUT로 바꾼다. uploadStreamInputBuffer을 입력으로 defaultDrawBuffer을 출력으로 SO단계를 수행한다. 4단계의 출력의 위치를 바꾸어준 후 nUploadStreamInputParticle을 0으로 초기화.
+	bool uploadProcess = false;
 	SynchronizeResourceTransition(_pCommandList, particleResource.defaultDrawBuffer.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_STREAM_OUT);
 	if (0 < particleResource.nUploadStreamInputParticle) {
 		static_pointer_cast<ParticleStreamOutShader>(Shader::GetShader(SHADER_TYPE::ParticleStreamOut))->Render(_pCommandList, true);
-		particleResource.defaultStreamOutputBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress() + nStride * particleResource.nUploadStreamInputParticle;
-		particleResource.nUploadStreamInputParticle = 0;
 
 		//3-2. 스트림 출력의 결과로 생긴 파티클의 개수를 저장한다.
 		SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_COPY_SOURCE);
 		_pCommandList->CopyResource(particleResource.readBackBufferFilledSize.Get(), particleResource.defaultBufferFilledSize.Get());
 		SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_STREAM_OUT);
 		
-		particleResource.readBackBufferFilledSize->Map(0, NULL, (void**)&particleResource.mappedReadBackBufferFilledSize);
-		particleResource.nDefaultStreamOutputParticle += (*particleResource.mappedReadBackBufferFilledSize) / nStride;
-		cout << "새로 추가된 파티클 SO 진행후 개수 : " << (*particleResource.mappedReadBackBufferFilledSize) / nStride << "\n";
-		particleResource.readBackBufferFilledSize->Unmap(0, NULL);
+		//particleResource.readBackBufferFilledSize->Map(0, NULL, (void**)&particleResource.mappedReadBackBufferFilledSize);
+		particleResource.nDefaultStreamOutputParticle += particleResource.nUploadStreamInputParticle;
+		//cout << "새로 추가된 파티클 SO 진행후 개수 : " << (*particleResource.mappedReadBackBufferFilledSize) / nStride << "\n";
+		//particleResource.readBackBufferFilledSize->Unmap(0, NULL);
 
-		SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_COPY_DEST);
-		_pCommandList->CopyResource(particleResource.defaultBufferFilledSize.Get(), particleResource.uploadBufferFilledSize.Get());
-		SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_STREAM_OUT);
+		//SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_COPY_DEST);
+		//_pCommandList->CopyResource(particleResource.defaultBufferFilledSize.Get(), particleResource.uploadBufferFilledSize.Get());
+		//SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_STREAM_OUT);
+
+		particleResource.defaultStreamOutputBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress() + nStride * particleResource.nUploadStreamInputParticle;
+		particleResource.defaultStreamOutputBufferView.SizeInBytes = nStride * (particleResource.nMaxParticle - particleResource.nUploadStreamInputParticle);
+		particleResource.nUploadStreamInputParticle = 0;
+
+		uploadProcess = true;
 	}
 
 	//4. 그 다음 위치부터 defaultStreamInputBuffer을 이력으로 defaultDrawBuffer을 출력으로 SO단계를 수행한다.
+	bool defaultProcess = false;
 	if (0 < particleResource.nDefaultStreamInputParticle) {
 		static_pointer_cast<ParticleStreamOutShader>(Shader::GetShader(SHADER_TYPE::ParticleStreamOut))->Render(_pCommandList, false);
 
@@ -168,26 +228,13 @@ void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLi
 		_pCommandList->CopyResource(particleResource.readBackBufferFilledSize.Get(), particleResource.defaultBufferFilledSize.Get());
 		SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_STREAM_OUT);
 
-		particleResource.readBackBufferFilledSize->Map(0, NULL, (void**)&particleResource.mappedReadBackBufferFilledSize);
-		particleResource.nDefaultStreamOutputParticle += (*particleResource.mappedReadBackBufferFilledSize) / nStride;
-		cout << "전체 출력해야될 개수 : " << particleResource.nDefaultStreamOutputParticle << "\n";
-		particleResource.readBackBufferFilledSize->Unmap(0, NULL);
+
+		defaultProcess = true;
 	}
 
 	_pCommandList->SOSetTargets(0, 1, NULL);	// SO출력이 되지 않도록 해제한다. 화면에 그려야 하므로
 
-	//5. defaultDrawBuffer를 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER로 바꾼다.  defaultDrawBuffer를 입력으로 렌더링을 수행한다.
-	SynchronizeResourceTransition(_pCommandList, particleResource.defaultDrawBuffer.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	if (0 < particleResource.nDefaultStreamOutputParticle) {
-		Shader::GetShader(SHADER_TYPE::ParticleDraw)->Render(_pCommandList);
-	}
 
-	//6. 두개의 포인터를 바꾼다. 파티클의 개수도 바꿔준다.
-	swap(particleResource.defaultDrawBuffer, particleResource.defaultStreamInputBuffer);
-	particleResource.nDefaultStreamInputParticle = particleResource.nDefaultStreamOutputParticle;	// 이번에 출력개수가 다음의 입력개수가 된다.
-	particleResource.defaultStreamInputBufferView.BufferLocation = particleResource.defaultStreamInputBuffer->GetGPUVirtualAddress();
-	particleResource.defaultDrawBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress();
-	particleResource.defaultStreamOutputBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress();
 
 }
 
@@ -681,8 +728,6 @@ ParticleDrawShader::ParticleDrawShader(const ComPtr<ID3D12Device>& _pDevice, con
 	pipelineStateDesc.PS = CompileShaderFromFile(L"Shaders.hlsl", "ParticleDrawPixelShader", "ps_5_1", pPSBlob);
 
 	HRESULT hResult = _pDevice->CreateGraphicsPipelineState(&pipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)pPipelineState.GetAddressOf());
-	if (hResult != S_OK)
-		cout << "ParticleDrawShader 파이프라인 생성 실패\n";
 
 	pVSBlob.Reset();
 	pGSBlob.Reset();
@@ -712,6 +757,13 @@ D3D12_INPUT_LAYOUT_DESC ParticleDrawShader::CreateInputLayout() {
 
 void ParticleDrawShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	PrepareRender(_pCommandList);
+
+	if (particleResource.textureDescriptorHeap && particleResource.texture && particleResource.texture->GetSrvGpuDescriptorHandle().ptr) {
+		_pCommandList->SetDescriptorHeaps(1, particleResource.textureDescriptorHeap.GetAddressOf());
+
+		_pCommandList->SetGraphicsRootDescriptorTable(particleResource.texture->GetRootParameterIndex(), particleResource.texture->GetSrvGpuDescriptorHandle());
+		
+	}
 
 	_pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 	_pCommandList->SOSetTargets(0, 1, NULL);	// SO출력이 되지 않도록 해제한다. 화면에 그려야 하므로

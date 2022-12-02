@@ -172,6 +172,7 @@ void TextureBundle::UpdateShaderVariables(const ComPtr<ID3D12GraphicsCommandList
 	
 	for (shared_ptr<Texture>& texture : pTextures) {
 		if (texture && texture->GetSrvGpuDescriptorHandle().ptr) {
+			// 
 			pd3dCommandList->SetGraphicsRootDescriptorTable(texture->GetRootParameterIndex(), texture->GetSrvGpuDescriptorHandle());
 		}
 	}

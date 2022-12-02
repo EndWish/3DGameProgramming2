@@ -652,9 +652,13 @@ void GameFramework::CreateShaderVariables() {
 	pcbFrameworkInfo->Map(0, NULL, (void**)&pcbMappedFrameworkInfo);
 }
 void GameFramework::UpdateShaderVariables() {
-	pcbMappedFrameworkInfo->currentTime = gameTimer.GetTotalTime();
+	pcbMappedFrameworkInfo->currentTime = gameTimer.GetTimeElapsed();
 	pcbMappedFrameworkInfo->elapsedTime = (float)gameTimer.GetTimeElapsed();
+	//cout << "경과시간" << (float)gameTimer.GetTimeElapsed() << "\n";
 
 	D3D12_GPU_VIRTUAL_ADDRESS d3dGpuVirtualAddress = pcbFrameworkInfo->GetGPUVirtualAddress();
 	pCommandList->SetGraphicsRootConstantBufferView(11, d3dGpuVirtualAddress);
+}
+void GameFramework::SynchronizeRenderTargetBuffer(D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
+	SynchronizeResourceTransition(pCommandList, pRenderTargetBuffers[swapChainBufferCurrentIndex], stateBefore, stateAfter);
 }

@@ -90,6 +90,18 @@ void GunshipEnemy::Animate(float _timeElapsed) {
 
 void GunshipEnemy::Attacked(float _dmg) {
 	Unit::Attacked(_dmg);
-	if (hp <= 0)
+	if (hp <= 0) {
+		VS_ParticleMappedFormat particle;
+		particle.boardSize = { 10,10 };
+		particle.lifetime = 0.8f;
+		particle.position = GetWorldPosition();
+		particle.type = 0;
+		for (int i = 0; i < 10; ++i) {
+			particle.velocity = XMFLOAT3(rand() % 200 - 100, rand() % 200 - 100, rand() % 200 - 100);
+			Shader::AddParticle(particle);
+		}
+
 		DeleteMe();
+	}
+		
 }

@@ -119,4 +119,5 @@ public:
 	// 쉐이더 변수 관련 함수
 	void CreateShaderVariables();
 	void UpdateShaderVariables();
+	void SynchronizeRenderTargetBuffer(D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
 };

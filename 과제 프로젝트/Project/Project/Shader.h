@@ -1,5 +1,7 @@
 #pragma once
 
+class Texture;
+class TextureBundle;
 class Mesh;
 class GameObject;
 
@@ -11,6 +13,7 @@ class BillBoardShader;
 
 #define PARTICLE_TYPE_WRECK		0
 #define PARTICLE_TYPE_SPARK		1
+
 struct VS_ParticleMappedFormat {
 	XMFLOAT3 position;
 	XMFLOAT3 velocity;
@@ -32,7 +35,14 @@ struct ParticleResource {
 	ComPtr<ID3D12Resource> defaultBufferFilledSize, uploadBufferFilledSize, readBackBufferFilledSize;	// 각각 SO에서 write한 크기가 입력될 버퍼, default버퍼에 0을 쓰기위한 버퍼, defualt에 써진 값을 읽어오기 위한 버퍼
 	shared_ptr<UINT> mappedReadBackBufferFilledSize;
 
+	// 텍스처 관련 변수
+	shared_ptr<Texture> texture;
+	ComPtr<ID3D12DescriptorHeap> textureDescriptorHeap;
+	shared_ptr<TextureBundle> textures;
+
 	void Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+
+	void ReadFilledSize(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 
 };
 
@@ -44,17 +54,7 @@ protected:
 	static vector<weak_ptr<GameObject>> wpAlphaObjects;
 
 	// StreamOutput과 관련된 변수들
-	//static const UINT nMaxParticle = 10000;
 	static ParticleResource particleResource;
-	//static UINT64 nParticle;
-	//static ComPtr<ID3D12Resource> uploadStreamInputBuffer, particleDrawBuffer;	// streamOutBuffer : 스트림 출력단계의 입력이 되는 버퍼, 출력이 되는 버퍼 + 그려는 파티클들의 버퍼 : particleDrawBuffer
-	//static shared_ptr<VS_ParticleMappedFormat[nMaxParticle]> mappedStreamOutBuffer;	// streamOutBuffer에 값을 쓸 수 있도록 upload로 생성하여 맵한다.
-	//static D3D12_VERTEX_BUFFER_VIEW streamInputBufferView;	// 스트림 출력의 입력으로 쓸 리소스에 대한 뷰
-	//static D3D12_STREAM_OUTPUT_BUFFER_VIEW streamOutputBufferView;	// 스트림 출력이 써질 버퍼(=particleDrawBuffer)
-	//static D3D12_VERTEX_BUFFER_VIEW particleDrawBufferView;	// 파티클을 그리기 위한 버퍼뷰
-	//static ComPtr<ID3D12Resource> defaultBufferFilledSize, defaultBufferFilledSizeZero, readBackBufferFilledSize;
-	//static ComPtr<ID3D12Resource> uploadBufferFilledSize;
-	//static shared_ptr<UINT64> mappedReadBackBufferFilledSize;
 
 public:
 	static void MakeShaders(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const ComPtr<ID3D12RootSignature>& _pRootSignature);
