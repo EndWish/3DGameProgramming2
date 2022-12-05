@@ -59,7 +59,6 @@ public:		// 멤버 함수▼
 class BasicMesh : public Mesh {
 public:
 	static shared_ptr<BasicMesh> LoadFromFile(ifstream& _file, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
-
 protected:
 
 	ComPtr<ID3D12Resource> pNormalBuffer;		// 노멀벡터의 정보
@@ -181,4 +180,28 @@ public:		// 생성관련 멤버 함수▼
 public:		// 멤버 함수▼
 	//void LoadFromFile(const string& _fileName, const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// 멀티 렌더타겟 매쉬
+class MultipleRenderTargetMesh : public Mesh {
+protected:
+	static MultipleRenderTargetMesh fullScreenRectMesh;
+public:
+	static void MakeFullScreenRectMesh(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+	static MultipleRenderTargetMesh& GetFullScreenRectMesh();
+protected:
+
+	ComPtr<ID3D12Resource> pTextureCoordBuffer;		// UV벡터의 정보
+	ComPtr<ID3D12Resource> pTextureCoordUploadBuffer;
+	D3D12_VERTEX_BUFFER_VIEW textureCoordBufferView;
+
+public:		// 생성관련 멤버 함수▼
+	// 생성자 및 소멸자
+	MultipleRenderTargetMesh();
+	virtual ~MultipleRenderTargetMesh();
+
+public:
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+
 };

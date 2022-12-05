@@ -13,15 +13,6 @@ vector<weak_ptr<GameObject>> Shader::wpAlphaObjects;
 // StreamOutput과 관련된 변수들
 ParticleResource Shader::particleResource = ParticleResource();
 
-//1. uploadStreamInputBuffer에 파티클을 추가한다.nUploadStreamInputParticle을 추가한 개수만큼 증가시킨다.
-//2. defaultBufferFilledSize에 uploadBufferFilledSize를 복사하여 0으로 만든다.defaultDrawBuffer의 상태를 D3D12_RESOURCE_STATE_STREAM_OUT로 바꾼다.
-//3. uploadStreamInputBuffer을 입력으로 defaultDrawBuffer을 출력으로 SO단계를 수행한다.nUploadStreamInputParticle을 0으로 초기화.
-//4. 그 다음 위치부터 defaultStreamInputBuffer을 이력으로 defaultDrawBuffer을 출력으로 SO단계를 수행한다.
-//5. defaultDrawBuffer를 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER로 바꾼다.
-//6. defaultDrawBuffer를 입력으로 렌더링을 수행한다.
-//7. 두개의 포인터를 바꾼다.readBackBufferFilledSize을 통해 쓰여진 파티클의 개수를 nDefaultStreamInputParticle 에 대입한다.
-//8. defaultStreamInputBufferView와 defaultStreamOutputBufferView와 defaultDrawBufferView의 BufferLocation을 수정한다.
-
 void ParticleResource::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	// UINT ncbElementBytes = ((sizeof(CB_FRAMEWORK_INFO) + 255) & ~255); //256의 배수
 	// 256의 배수로 안만들어서?
@@ -113,6 +104,7 @@ void Shader::MakeShaders(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D
 	shaders[4] = make_shared<BillBoardShader>(_pDevice, _pRootSignature);
 	shaders[5] = make_shared<ParticleStreamOutShader>(_pDevice, _pRootSignature);
 	shaders[6] = make_shared<ParticleDrawShader>(_pDevice, _pRootSignature);
+	shaders[7] = make_shared<MultipleRenderTargetShader>(_pDevice, _pRootSignature);
 
 	particleResource.Init(_pDevice, _pCommandList);
 
@@ -160,7 +152,7 @@ void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLi
 
 	particleResource.readBackBufferFilledSize->Map(0, NULL, (void**)&particleResource.mappedReadBackBufferFilledSize);
 	particleResource.nDefaultStreamOutputParticle += (*particleResource.mappedReadBackBufferFilledSize) / nStride;
-	cout << "전체 출력해야될 개수 : " << particleResource.nDefaultStreamOutputParticle << "\n";
+	//cout << "전체 출력해야될 개수 : " << particleResource.nDefaultStreamOutputParticle << "\n";
 	particleResource.readBackBufferFilledSize->Unmap(0, NULL);
 
 	//5. defaultDrawBuffer를 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER로 바꾼다.  defaultDrawBuffer를 입력으로 렌더링을 수행한다.
@@ -174,7 +166,7 @@ void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLi
 
 
 		swap(particleResource.defaultDrawBuffer, particleResource.defaultStreamInputBuffer);
-		cout << particleResource.nDefaultStreamInputParticle << " = " << particleResource.nDefaultStreamOutputParticle << "\n";
+		//cout << particleResource.nDefaultStreamInputParticle << " = " << particleResource.nDefaultStreamOutputParticle << "\n";
 		particleResource.nDefaultStreamInputParticle = particleResource.nDefaultStreamOutputParticle;	// 이번에 출력개수가 다음의 입력개수가 된다.
 		particleResource.defaultStreamInputBufferView.BufferLocation = particleResource.defaultStreamInputBuffer->GetGPUVirtualAddress();
 		particleResource.defaultDrawBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress();
@@ -269,7 +261,6 @@ void Shader::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootS
 D3D12_RASTERIZER_DESC Shader::CreateRasterizerState() {
 	D3D12_RASTERIZER_DESC rasterizerDesc;
 	ZeroMemory(&rasterizerDesc, sizeof(D3D12_RASTERIZER_DESC));
-	//	d3dRasterizerDesc.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 	rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
 	rasterizerDesc.FrontCounterClockwise = FALSE;
@@ -774,8 +765,6 @@ void ParticleDrawShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pComma
 	_pCommandList->DrawInstanced((UINT)Shader::particleResource.nDefaultStreamOutputParticle, 1, 0, 0);
 }
 
-
-
 /////////////////// HitBox Shader
 HitBoxShader::HitBoxShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
 
@@ -827,3 +816,58 @@ void HitBoxShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList
 	// 아무것도 없음
 }
 
+/////////////////// Mutiple RenderTarget Shader
+MultipleRenderTargetShader::MultipleRenderTargetShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature) {
+
+	Init(_pDevice, _pRootSignature);
+	pipelineStateDesc.VS = CompileShaderFromFile(L"Shaders.hlsl", "MutipleRenderTargetVertexShader", "vs_5_1", pVSBlob);
+	pipelineStateDesc.PS = CompileShaderFromFile(L"Shaders.hlsl", "MutipleRenderTargetPixelShader", "ps_5_1", pPSBlob);
+
+	HRESULT hResult = _pDevice->CreateGraphicsPipelineState(&pipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)pPipelineState.GetAddressOf());
+
+	pVSBlob.Reset();
+	pPSBlob.Reset();
+
+	inputElementDescs.clear();
+}
+MultipleRenderTargetShader::~MultipleRenderTargetShader() {
+
+}
+
+D3D12_DEPTH_STENCIL_DESC MultipleRenderTargetShader::CreateDepthStencilState() {
+	D3D12_DEPTH_STENCIL_DESC depthStencilDesc;
+	ZeroMemory(&depthStencilDesc, sizeof(D3D12_DEPTH_STENCIL_DESC));
+	depthStencilDesc.DepthEnable = FALSE;
+	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	depthStencilDesc.StencilEnable = FALSE;
+	depthStencilDesc.StencilReadMask = 0x00;
+	depthStencilDesc.StencilWriteMask = 0x00;
+	depthStencilDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_NEVER;
+	depthStencilDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_NEVER;
+
+	return depthStencilDesc;
+}
+D3D12_INPUT_LAYOUT_DESC MultipleRenderTargetShader::CreateInputLayout() {
+	inputElementDescs.assign(2, {});
+
+	inputElementDescs[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	inputElementDescs[1] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+
+	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc;
+	inputLayoutDesc.pInputElementDescs = &inputElementDescs[0];
+	inputLayoutDesc.NumElements = (UINT)inputElementDescs.size();
+
+	return inputLayoutDesc;
+}
+
+void MultipleRenderTargetShader::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	PrepareRender(_pCommandList);
+	MultipleRenderTargetMesh::GetFullScreenRectMesh().Render(_pCommandList);
+}

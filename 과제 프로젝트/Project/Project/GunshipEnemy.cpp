@@ -96,8 +96,10 @@ void GunshipEnemy::Attacked(float _dmg) {
 		particle.lifetime = 0.8f;
 		particle.position = GetWorldPosition();
 		particle.type = 0;
+
+		uniform_real_distribution<float> urd(-100.f, 100.f);
 		for (int i = 0; i < 10; ++i) {
-			particle.velocity = XMFLOAT3(rand() % 200 - 100, rand() % 200 - 100, rand() % 200 - 100);
+			particle.velocity = XMFLOAT3(urd(rd), urd(rd), urd(rd));
 			Shader::AddParticle(particle);
 		}
 

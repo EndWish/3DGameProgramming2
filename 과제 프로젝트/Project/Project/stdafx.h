@@ -72,6 +72,7 @@ void ReadStringBinary(string& _dest, ifstream& _file);
 // 리소스 생성
 ComPtr<ID3D12Resource> CreateBufferResource(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, void* _pData, UINT _byteSize, D3D12_HEAP_TYPE _heapType, D3D12_RESOURCE_STATES _resourceStates, const ComPtr<ID3D12Resource>& _pUploadBuffer);
 ComPtr<ID3D12Resource> CreateTextureResourceFromDDSFile(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const wstring _fileName, const ComPtr<ID3D12Resource>& _pUploadBuffer, D3D12_RESOURCE_STATES d3dResourceStates);
+ComPtr<ID3D12Resource> CreateTexture2DResource(const ComPtr<ID3D12Device>& _pDevice, UINT _width, UINT _height, UINT _elements, UINT _mipLevels, DXGI_FORMAT _dxgiFormat, D3D12_RESOURCE_FLAGS _resourceFlags, D3D12_RESOURCE_STATES _resourceStates, D3D12_CLEAR_VALUE* pd3dClearValue);
 
 // 리소스 배리어
 void SynchronizeResourceTransition(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const ComPtr<ID3D12Resource>& _pResource, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
@@ -107,6 +108,7 @@ enum class SHADER_TYPE : UINT {
 	BillBoard,
 	ParticleStreamOut,
 	ParticleDraw,
+	MultipleRanderTarget,
 	NUM,
 	NONE,
 };

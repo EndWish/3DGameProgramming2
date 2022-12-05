@@ -121,6 +121,14 @@ void Texture::LoadTextureFromDDSFile(const ComPtr<ID3D12Device>& _pDevice, const
 	cout << string(_fileName.begin(), _fileName.end())  << "\n";
 }
 
+void Texture::CreateTexture2DResource(const ComPtr<ID3D12Device>& _pDevice, UINT _rootParameterIndex,  UINT _width, UINT _height, UINT _elements, UINT _mipLevels, DXGI_FORMAT _dxgiFormat, D3D12_RESOURCE_FLAGS _resourceFlags, D3D12_RESOURCE_STATES _resourceStates, D3D12_CLEAR_VALUE pClearValue) {
+	rootParameterIndex = _rootParameterIndex;
+	bufferFormat = _dxgiFormat;
+	bufferElement = _elements;
+	resourceType = RESOURCE_TEXTURE2D;
+	pTextureBuffer = ::CreateTexture2DResource(_pDevice, _width, _height, _elements, _mipLevels, _dxgiFormat, _resourceFlags, _resourceStates, &pClearValue);
+}
+
 /////////////////////////////////////////////////////////////////////////////////////
 ///	TextureBundle
 
@@ -167,7 +175,7 @@ void TextureBundle::SetSampler(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSample
 void TextureBundle::UpdateShaderVariables(const ComPtr<ID3D12GraphicsCommandList>& pd3dCommandList) {
 	//[주의] : 쉐이더에 있는 것을 텍스쳐에 옮겨놨다.
 	if (m_pd3dCbvSrvDescriptorHeap) {
-		pd3dCommandList->SetDescriptorHeaps(1, m_pd3dCbvSrvDescriptorHeap.GetAddressOf());	// ???
+		pd3dCommandList->SetDescriptorHeaps(1, m_pd3dCbvSrvDescriptorHeap.GetAddressOf());
 	}
 	
 	for (shared_ptr<Texture>& texture : pTextures) {

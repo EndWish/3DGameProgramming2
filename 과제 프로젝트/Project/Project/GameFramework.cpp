@@ -19,6 +19,7 @@ void GameFramework::Create(HINSTANCE _hInstance, HWND _hMainWnd) {
 		gameFramework.CreateRenderTargetViews();
 		gameFramework.CreateDepthStencilView();
 		gameFramework.CreateGraphicsRootSignature();
+		
 
 		gameFramework.pCommandList->Reset(gameFramework.pCommandAllocator.Get(), NULL);
 		
@@ -33,6 +34,7 @@ void GameFramework::Create(HINSTANCE _hInstance, HWND _hMainWnd) {
 
 		// 히트박스용 메쉬 생성
 		HitBoxMesh::MakeHitBoxMesh(gameFramework.pDevice, gameFramework.pCommandList);
+		MultipleRenderTargetMesh::MakeFullScreenRectMesh(gameFramework.pDevice, gameFramework.pCommandList);
 
 		// 최초씬 생성
 		shared_ptr<Scene> startScene = make_shared<PlayScene>(1);
@@ -176,7 +178,7 @@ void GameFramework::CreateRtvAndDsvDescriptorHeaps() {
 	// 렌더타겟 서술자 힙 생성
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc;
 	ZeroMemory(&descriptorHeapDesc, sizeof(D3D12_DESCRIPTOR_HEAP_DESC));
-	descriptorHeapDesc.NumDescriptors = nSwapChainBuffer;
+	descriptorHeapDesc.NumDescriptors = nSwapChainBuffer + 1;	// nSwapChainBuffer개 + depthZbuffer, 
 	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	descriptorHeapDesc.NodeMask = 0;
@@ -221,6 +223,8 @@ void GameFramework::CreateSwapChain()
 
 }
 void GameFramework::CreateRenderTargetViews() {
+
+	// 렌더 타겟 리소스 생성 및 힙에 등록
 	HRESULT hResult;
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvCPUDescriptorHandle = pRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();    // 서술자 힙을 통해 시작주소를 가져온다.
 	for (int i = 0; i < nSwapChainBuffer; ++i) {
@@ -228,6 +232,33 @@ void GameFramework::CreateRenderTargetViews() {
 		pDevice->CreateRenderTargetView(pRenderTargetBuffers[i].Get(), NULL, rtvCPUDescriptorHandle);    // 렌더타겟 뷰를 서술자 힙에 생성(적재)
 		rtvCPUDescriptorHandle.ptr += rtvDescriptorIncrementSize;    // 다음번 주소로 이동
 	}
+
+	// SRV를 담을 서술자 힙 생성
+	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc;
+	descriptorHeapDesc.NumDescriptors = nMultipleRenderTarget; // SRVs 
+	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descriptorHeapDesc.NodeMask = 0;
+	hResult = pDevice->CreateDescriptorHeap(&descriptorHeapDesc, __uuidof(ID3D12DescriptorHeap), (void**)textureDescriptorHeap.GetAddressOf());
+
+	// depthZ를 저장할 텍스처 리소스 생성
+	D3D12_CLEAR_VALUE clearValue = { DXGI_FORMAT_R32_FLOAT, { 1.0f } };
+	depthZTexture.CreateTexture2DResource(pDevice, 12, clientWidth, clientHeight, 1, 0, DXGI_FORMAT_R32_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON, clearValue);
+	
+	// RTV 힙에 이어서 등록
+	D3D12_RENDER_TARGET_VIEW_DESC d3dRenderTargetViewDesc;
+	d3dRenderTargetViewDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	d3dRenderTargetViewDesc.Texture2D.MipSlice = 0;
+	d3dRenderTargetViewDesc.Texture2D.PlaneSlice = 0;
+	d3dRenderTargetViewDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	pDevice->CreateRenderTargetView(depthZTexture.GetTextureBuffer().Get(), &d3dRenderTargetViewDesc, rtvCPUDescriptorHandle);
+	rtvCPUDescriptorHandle.ptr += rtvDescriptorIncrementSize;    // 다음번 주소로 이동
+
+	// SRV 힙에 등록
+	D3D12_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc = depthZTexture.GetShaderResourceViewDesc();
+	pDevice->CreateShaderResourceView(depthZTexture.GetTextureBuffer().Get(), &shaderResourceViewDesc, textureDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	depthZTexture.SetGpuDescriptorHandle(textureDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
 }
 void GameFramework::CreateDepthStencilView() {
 	HRESULT hResult;
@@ -272,7 +303,7 @@ void GameFramework::CreateDepthStencilView() {
 void GameFramework::CreateGraphicsRootSignature() {
 
 	// 서술자 테이블을 만들기 위한 Ranges
-	D3D12_DESCRIPTOR_RANGE pd3dDescriptorRanges[7];
+	D3D12_DESCRIPTOR_RANGE pd3dDescriptorRanges[8];
 
 	pd3dDescriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[0].NumDescriptors = 1;
@@ -316,9 +347,15 @@ void GameFramework::CreateGraphicsRootSignature() {
 	pd3dDescriptorRanges[6].RegisterSpace = 0;
 	pd3dDescriptorRanges[6].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	pd3dDescriptorRanges[7].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	pd3dDescriptorRanges[7].NumDescriptors = 1;
+	pd3dDescriptorRanges[7].BaseShaderRegister = 13; //t12: gtxtDetailNormalTexture
+	pd3dDescriptorRanges[7].RegisterSpace = 0;
+	pd3dDescriptorRanges[7].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	// 루트 파라매터
 	HRESULT hResult;
-	D3D12_ROOT_PARAMETER pRootParameters[12];
+	D3D12_ROOT_PARAMETER pRootParameters[13];
 
 	// 변수 부분
 	pRootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -349,39 +386,44 @@ void GameFramework::CreateGraphicsRootSignature() {
 
 	// 텍스쳐 부분
 	pRootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	pRootParameters[4].DescriptorTable.NumDescriptorRanges = 1;		//t1: gtxtAlbedoTexture
+	pRootParameters[4].DescriptorTable.NumDescriptorRanges = 1;		//t6: gtxtAlbedoTexture
 	pRootParameters[4].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[0]);
 	pRootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	pRootParameters[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	pRootParameters[5].DescriptorTable.NumDescriptorRanges = 1;		//t2: gtxtSpecularTexture
+	pRootParameters[5].DescriptorTable.NumDescriptorRanges = 1;		//t7: gtxtSpecularTexture
 	pRootParameters[5].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[1]);
 	pRootParameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	pRootParameters[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	pRootParameters[6].DescriptorTable.NumDescriptorRanges = 1;		//t3: gtxtNormalTexture
+	pRootParameters[6].DescriptorTable.NumDescriptorRanges = 1;		//t8: gtxtNormalTexture
 	pRootParameters[6].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[2]);
 	pRootParameters[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	pRootParameters[7].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	pRootParameters[7].DescriptorTable.NumDescriptorRanges = 1;		//t4: gtxtMetallicTexture
+	pRootParameters[7].DescriptorTable.NumDescriptorRanges = 1;		//t9: gtxtMetallicTexture
 	pRootParameters[7].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[3]);
 	pRootParameters[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	pRootParameters[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	pRootParameters[8].DescriptorTable.NumDescriptorRanges = 1;		//t5: gtxtEmissionTexture
+	pRootParameters[8].DescriptorTable.NumDescriptorRanges = 1;		//t10: gtxtEmissionTexture
 	pRootParameters[8].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[4]);
 	pRootParameters[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	pRootParameters[9].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	pRootParameters[9].DescriptorTable.NumDescriptorRanges = 1;		//t6: gtxtDetailAlbedoTexture
+	pRootParameters[9].DescriptorTable.NumDescriptorRanges = 1;		//t11: gtxtDetailAlbedoTexture
 	pRootParameters[9].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[5]);
 	pRootParameters[9].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	pRootParameters[10].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	pRootParameters[10].DescriptorTable.NumDescriptorRanges = 1;		//t7: gtxtDetailNormalTexture
+	pRootParameters[10].DescriptorTable.NumDescriptorRanges = 1;		//t12: gtxtDetailNormalTexture
 	pRootParameters[10].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[6]);
 	pRootParameters[10].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	pRootParameters[12].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	pRootParameters[12].DescriptorTable.NumDescriptorRanges = 1;		//t13: depthZTexture
+	pRootParameters[12].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[7]);
+	pRootParameters[12].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	// 샘플러 생성
 	D3D12_STATIC_SAMPLER_DESC pd3dSamplerDescs[2];
@@ -466,29 +508,28 @@ void GameFramework::FrameAdvance() {
 	HRESULT hResult = pCommandAllocator->Reset();
 	hResult = pCommandList->Reset(pCommandAllocator.Get(), NULL);
 	// 현재 렌더 타겟에 대한 Present가 끝나기를 기다림.  (PRESENT = 프리젠트 상태, RENDER_TARGET = 렌더 타겟 상태
-	D3D12_RESOURCE_BARRIER resourceBarrier;
-	ZeroMemory(&resourceBarrier, sizeof(D3D12_RESOURCE_BARRIER));
-	resourceBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	resourceBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	resourceBarrier.Transition.pResource = pRenderTargetBuffers[swapChainBufferCurrentIndex].Get();
-	resourceBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	resourceBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	resourceBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-	pCommandList->ResourceBarrier(1, &resourceBarrier);
+	SynchronizeResourceTransition(pCommandList, pRenderTargetBuffers[swapChainBufferCurrentIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	SynchronizeResourceTransition(pCommandList, depthZTexture.GetTextureBuffer(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	
 	// 현재 렌더 타겟 뷰의 CPU 주소 계산
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvCPUDescriptorHandle = pRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	rtvCPUDescriptorHandle.ptr += (rtvDescriptorIncrementSize * swapChainBufferCurrentIndex);
-
+	//D3D12_CPU_DESCRIPTOR_HANDLE rtvCPUDescriptorHandle = pRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	//rtvCPUDescriptorHandle.ptr += (rtvDescriptorIncrementSize * swapChainBufferCurrentIndex);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvCPUDescriptorHandle[2];
+	rtvCPUDescriptorHandle[0] = pRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	rtvCPUDescriptorHandle[0].ptr += (rtvDescriptorIncrementSize * swapChainBufferCurrentIndex);
+	rtvCPUDescriptorHandle[1] = pRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	rtvCPUDescriptorHandle[1].ptr += (rtvDescriptorIncrementSize * nSwapChainBuffer);
+	
 	//깊이-스텐실 서술자의 CPU 주소를 계산한다. 
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvCPUDescriptorHandle = pDsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
 	//렌더 타겟 뷰(서술자)와 깊이-스텐실 뷰(서술자)를 출력-병합 단계(OM)에 연결한다. 
-	pCommandList->OMSetRenderTargets(1, &rtvCPUDescriptorHandle, TRUE, &dsvCPUDescriptorHandle);
+	pCommandList->OMSetRenderTargets(2, rtvCPUDescriptorHandle, FALSE, &dsvCPUDescriptorHandle);
 
 	float pClearColor[4] = {0.0f, 0.1f, 0.3f, 1.0f};
-	pCommandList->ClearRenderTargetView(rtvCPUDescriptorHandle, pClearColor, 0, NULL);
+	pCommandList->ClearRenderTargetView(rtvCPUDescriptorHandle[0], pClearColor, 0, NULL);
+	float pClearColor2[1] = { 1.0f };
+	pCommandList->ClearRenderTargetView(rtvCPUDescriptorHandle[1], pClearColor2, 0, NULL);
 
 	//원하는 값으로 깊이-스텐실(뷰)을 지운다. 
 	pCommandList->ClearDepthStencilView(dsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
@@ -502,11 +543,18 @@ void GameFramework::FrameAdvance() {
 		pScenes.top()->Render(pCommandList);
 	}
 
+	SynchronizeResourceTransition(pCommandList, depthZTexture.GetTextureBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
+	if (textureDescriptorHeap && depthZTexture.GetSrvGpuDescriptorHandle().ptr) {
+		pCommandList->SetDescriptorHeaps(1, textureDescriptorHeap.GetAddressOf());
+		pCommandList->SetGraphicsRootDescriptorTable(depthZTexture.GetRootParameterIndex(), depthZTexture.GetSrvGpuDescriptorHandle());
+		Shader::GetShader(SHADER_TYPE::MultipleRanderTarget)->Render(pCommandList);
+	}
+	
+	//depthZTexture.
+
 	// 현재 렌더 타겟에 대한 렌더링이 끝나기를 기다린다.
-	resourceBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	resourceBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-	resourceBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-	pCommandList->ResourceBarrier(1, &resourceBarrier);
+	SynchronizeResourceTransition(pCommandList, pRenderTargetBuffers[swapChainBufferCurrentIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+
 	//명령 리스트를 닫힌 상태로 만든다. 
 	hResult = pCommandList->Close();
 	//명령 리스트를 명령 큐에 추가하여 실행한다. 
@@ -577,7 +625,6 @@ void GameFramework::ChangeSwapChainState() {
 	swapChainBufferCurrentIndex = pDxgiSwapChain->GetCurrentBackBufferIndex();
 	CreateRenderTargetViews();
 }
-
 
 void GameFramework::ProcessInput() {
 
@@ -652,7 +699,7 @@ void GameFramework::CreateShaderVariables() {
 	pcbFrameworkInfo->Map(0, NULL, (void**)&pcbMappedFrameworkInfo);
 }
 void GameFramework::UpdateShaderVariables() {
-	pcbMappedFrameworkInfo->currentTime = gameTimer.GetTimeElapsed();
+	pcbMappedFrameworkInfo->currentTime = (float)gameTimer.GetTimeElapsed();
 	pcbMappedFrameworkInfo->elapsedTime = (float)gameTimer.GetTimeElapsed();
 	//cout << "경과시간" << (float)gameTimer.GetTimeElapsed() << "\n";
 

@@ -36,16 +36,21 @@ private:
 
 	static const UINT nSwapChainBuffer = 2;									// 스왑 체인 버퍼 개수
 	UINT swapChainBufferCurrentIndex;										// 현재 그릴 스왑체인의 후면버퍼 인덱스 
+	
 
 	// 렌더타겟, 깊이-스텐실 버퍼
 	array<ComPtr<ID3D12Resource>, nSwapChainBuffer> pRenderTargetBuffers;	// 렌더 타겟 버퍼(후면) 포인터를 담는 배열
 	ComPtr<ID3D12DescriptorHeap> pRtvDescriptorHeap;						// 렌더타겟버퍼의 서술자 힙. 
 	UINT rtvDescriptorIncrementSize;										// 렌더타겟 서술자의 크기
 
+	// 다중 렌더 타겟
+	static const UINT nMultipleRenderTarget = 1;	// 멀티 렌더 타겟을 할 렌더타겟 수(개본 렌더타겟 제외)
+	ComPtr<ID3D12DescriptorHeap> textureDescriptorHeap;
+	Texture depthZTexture;
+
 	ComPtr<ID3D12Resource> pDepthStencilBuffer;								// 깊이-스텐실 버퍼 포인터를 담는 배열
 	ComPtr<ID3D12DescriptorHeap> pDsvDescriptorHeap;						// 깊이-스텐실 버퍼의 서술자 힙. 
 	UINT dsvDescriptorIncrementSize;										// 깊이-스텐실 버퍼의 서술자의 크기
-
 
 	// 명령 큐, 명령 할당자, 명령 리스트의 인터페이스 포인터
 	ComPtr<ID3D12CommandQueue> pCommandQueue;
@@ -79,6 +84,8 @@ private:
 	bool leftMouseDrag;
 	POINT clickedLeftMousePos;
 
+
+
 // 생성, 소멸자
 public:
 	GameFramework();
@@ -92,7 +99,6 @@ public:
 	void CreateRenderTargetViews();		// 렌더타겟뷰 생성 후 서술자 힙에 적재
 	void CreateDepthStencilView();
 	void CreateGraphicsRootSignature();	// 루트 시그니쳐 생성
-
 
 public:
 	// get set 함수

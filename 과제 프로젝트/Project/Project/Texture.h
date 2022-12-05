@@ -60,12 +60,13 @@ public:
 	D3D12_SHADER_RESOURCE_VIEW_DESC GetShaderResourceViewDesc();
 
 	void SetName(const wstring& _name);
-	void SetName(const string& _name);
+	void SetName(const string& _name); 
 	void SetTextureMapType(UINT _textureMapType);
 	void SetRootParameterIndex(UINT _nRootParameterIndex);
 	void SetGpuDescriptorHandle(D3D12_GPU_DESCRIPTOR_HANDLE _srvGpuDescriptorHandle);
 
 	void LoadTextureFromDDSFile(const ComPtr<ID3D12Device>& pDevice, const ComPtr<ID3D12GraphicsCommandList>& pCommandList, const wstring& _fileName, UINT nResourceType);
+	void CreateTexture2DResource(const ComPtr<ID3D12Device>& _pDevice, UINT _rootParameterIndex, UINT _width, UINT _height, UINT _elements, UINT _mipLevels, DXGI_FORMAT _dxgiFormat, D3D12_RESOURCE_FLAGS _resourceFlags, D3D12_RESOURCE_STATES _resourceStates, D3D12_CLEAR_VALUE pClearValue);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

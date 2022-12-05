@@ -38,7 +38,7 @@ struct ParticleResource {
 	// 텍스처 관련 변수
 	shared_ptr<Texture> texture;
 	ComPtr<ID3D12DescriptorHeap> textureDescriptorHeap;
-	shared_ptr<TextureBundle> textures;
+	//shared_ptr<TextureBundle> textures;
 
 	void Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 
@@ -183,3 +183,15 @@ public:
 	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 };
 
+class MultipleRenderTargetShader : public Shader {
+	
+public:
+	MultipleRenderTargetShader(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12RootSignature>& _pRootSignature);
+	virtual ~MultipleRenderTargetShader();
+
+	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState();
+	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout() final;
+
+	virtual void Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
+
+};

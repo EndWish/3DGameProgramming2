@@ -151,6 +151,41 @@ ComPtr<ID3D12Resource> CreateTextureResourceFromDDSFile(const ComPtr<ID3D12Devic
 
 	return(pd3dTexture);
 }
+ComPtr<ID3D12Resource> CreateTexture2DResource(const ComPtr<ID3D12Device>& _pDevice, UINT _width, UINT _height, UINT _elements, UINT _mipLevels, DXGI_FORMAT _dxgiFormat, D3D12_RESOURCE_FLAGS _resourceFlags, D3D12_RESOURCE_STATES _resourceStates, D3D12_CLEAR_VALUE* pd3dClearValue) {
+	ComPtr<ID3D12Resource> pd3dTexture;
+
+	D3D12_HEAP_PROPERTIES d3dHeapPropertiesDesc;
+	::ZeroMemory(&d3dHeapPropertiesDesc, sizeof(D3D12_HEAP_PROPERTIES));
+	d3dHeapPropertiesDesc.Type = D3D12_HEAP_TYPE_DEFAULT;
+	d3dHeapPropertiesDesc.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	d3dHeapPropertiesDesc.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	d3dHeapPropertiesDesc.CreationNodeMask = 1;
+	d3dHeapPropertiesDesc.VisibleNodeMask = 1;
+
+	D3D12_RESOURCE_DESC d3dTextureResourceDesc;
+	::ZeroMemory(&d3dTextureResourceDesc, sizeof(D3D12_RESOURCE_DESC));
+	d3dTextureResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	d3dTextureResourceDesc.Alignment = 0;
+	d3dTextureResourceDesc.Width = _width;
+	d3dTextureResourceDesc.Height = _height;
+	d3dTextureResourceDesc.DepthOrArraySize = _elements;
+	d3dTextureResourceDesc.MipLevels = _mipLevels;
+	d3dTextureResourceDesc.Format = _dxgiFormat;
+	d3dTextureResourceDesc.SampleDesc.Count = 1;
+	d3dTextureResourceDesc.SampleDesc.Quality = 0;
+	d3dTextureResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	d3dTextureResourceDesc.Flags = _resourceFlags;
+
+	HRESULT hResult = _pDevice->CreateCommittedResource(&d3dHeapPropertiesDesc, D3D12_HEAP_FLAG_NONE, &d3dTextureResourceDesc, _resourceStates, pd3dClearValue, __uuidof(ID3D12Resource), (void**)pd3dTexture.GetAddressOf());
+	if (hResult != S_OK)
+		cout << "리소스 생성 오류\n";
+
+	if (pd3dTexture)
+		cout << "텍스처 리소스는 만들어 졌다.\n";
+
+	return(pd3dTexture);
+}
+
 
 // 리소스 배리어
 void SynchronizeResourceTransition(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList, const ComPtr<ID3D12Resource>& _pResource, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {

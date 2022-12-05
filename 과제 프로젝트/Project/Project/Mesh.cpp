@@ -687,3 +687,43 @@ void BillBoardMesh::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLis
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+/// 멀티 렌더타겟 매쉬
+MultipleRenderTargetMesh MultipleRenderTargetMesh::fullScreenRectMesh;
+void MultipleRenderTargetMesh::MakeFullScreenRectMesh(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	fullScreenRectMesh.name = "fullScreenRectMesh";
+	fullScreenRectMesh.primitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	fullScreenRectMesh.nVertex = 6;
+	//fullScreenRectMesh.shaderIndex = SHADER_TYPE::BASIC;
+
+	// positions를 리소스로 만드는 과정
+	vector<float> positions{ -1,1,0,  1,1,0,  1,-1,0,  -1,1,0,  1,-1,0,  -1,-1,0 };
+	fullScreenRectMesh.pPositionBuffer = CreateBufferResource(_pDevice, _pCommandList, positions.data(), sizeof(float) * 3 * fullScreenRectMesh.nVertex, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, fullScreenRectMesh.pPositionUploadBuffer);
+	fullScreenRectMesh.positionBufferView.BufferLocation = fullScreenRectMesh.pPositionBuffer->GetGPUVirtualAddress();
+	fullScreenRectMesh.positionBufferView.StrideInBytes = sizeof(XMFLOAT3);
+	fullScreenRectMesh.positionBufferView.SizeInBytes = sizeof(XMFLOAT3) * fullScreenRectMesh.nVertex;
+
+	// positions를 리소스로 만드는 과정
+	vector<float> textureCoords{ 0,0,  1,0,  1,1,  0,0,  1,1,  0,1 };
+	fullScreenRectMesh.pTextureCoordBuffer = CreateBufferResource(_pDevice, _pCommandList, textureCoords.data(), sizeof(float) * 2 * fullScreenRectMesh.nVertex, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, fullScreenRectMesh.pTextureCoordUploadBuffer);
+	fullScreenRectMesh.textureCoordBufferView.BufferLocation = fullScreenRectMesh.pTextureCoordBuffer->GetGPUVirtualAddress();
+	fullScreenRectMesh.textureCoordBufferView.StrideInBytes = sizeof(XMFLOAT2);
+	fullScreenRectMesh.textureCoordBufferView.SizeInBytes = sizeof(XMFLOAT2) * fullScreenRectMesh.nVertex;
+}
+
+MultipleRenderTargetMesh& MultipleRenderTargetMesh::GetFullScreenRectMesh() {
+	return fullScreenRectMesh;
+}
+
+MultipleRenderTargetMesh::MultipleRenderTargetMesh() {
+	primitiveTopology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+}
+MultipleRenderTargetMesh::~MultipleRenderTargetMesh() {
+
+}
+void MultipleRenderTargetMesh::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
+	_pCommandList->IASetPrimitiveTopology(primitiveTopology);
+	D3D12_VERTEX_BUFFER_VIEW vertexBuffersViews[2] = { positionBufferView, textureCoordBufferView };
+	_pCommandList->IASetVertexBuffers(0, 2, vertexBuffersViews);
+	_pCommandList->DrawInstanced(6, 1, 0, 0);
+}

@@ -30,6 +30,8 @@ Texture2D gtxtEmissionTexture : register(t10);
 Texture2D gtxtDetailAlbedoTexture : register(t11);
 Texture2D gtxtDetailNormalTexture : register(t12);
 
+Texture2D<float1> depthZTexture : register(t13);
+
 SamplerState gssWrap : register(s0);
 SamplerState gssClamp : register(s1);
 
@@ -83,8 +85,14 @@ VS_OUTPUT DefaultVertexShader(VS_INPUT input)
 	return output;
 }
 
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET0;
+    float zDepth : SV_TARGET1;
+};
+
 [earlydepthstencil]
-float4 DefaultPixelShader(VS_OUTPUT input) : SV_TARGET
+PS_OUTPUT DefaultPixelShader(VS_OUTPUT input)
 {
     OBJColors objColors;
     objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
@@ -94,7 +102,13 @@ float4 DefaultPixelShader(VS_OUTPUT input) : SV_TARGET
     float4 textureNormal = textureType & MATERIAL_NORMAL_MAP ? gtxtNormalTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
     float4 textureMetallic = textureType & MATERIAL_METALLIC_MAP ? gtxtMetallicTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
 	
-    return CalculateLight2(input.positionW, input.normal, objColors);
+    PS_OUTPUT output;
+    output.color = CalculateLight2(input.positionW, input.normal, objColors);
+    output.zDepth = distance(input.positionW, cameraPosition) / 2000.f;
+    //distance(input.positionW, cameraPosition) / 2000.f;
+    //input.position.z;
+    
+    return output;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -116,7 +130,7 @@ VS_OUTPUT AlphaBlendingVertexShader(VS_INPUT input)
     return output;
 }
 
-float4 AlphaBlendingPixelShader(VS_OUTPUT input) : SV_TARGET
+PS_OUTPUT AlphaBlendingPixelShader(VS_OUTPUT input)
 {
     OBJColors objColors;
     objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
@@ -126,7 +140,10 @@ float4 AlphaBlendingPixelShader(VS_OUTPUT input) : SV_TARGET
     float4 textureNormal = textureType & MATERIAL_NORMAL_MAP ? gtxtNormalTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
     float4 textureMetallic = textureType & MATERIAL_METALLIC_MAP ? gtxtMetallicTexture.Sample(gssWrap, input.uv) : float4(0.0f, 0.0f, 0.0f, 0.0f);
 	
-    return CalculateLight2(input.positionW, input.normal, objColors);
+    PS_OUTPUT output;
+    output.color = CalculateLight2(input.positionW, input.normal, objColors);
+    output.zDepth = distance(input.positionW, cameraPosition) / 2000.f;
+    return output;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,7 +209,7 @@ VS_TERRAIN_OUTPUT TerrainVertexShader(VS_TERRAIN_INPUT input)
 }
 
 [earlydepthstencil]
-float4 TerrainPixelShader(VS_TERRAIN_OUTPUT input) : SV_TARGET
+PS_OUTPUT TerrainPixelShader(VS_TERRAIN_OUTPUT input)
 {
     OBJColors objColors;
     objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
@@ -205,7 +222,11 @@ float4 TerrainPixelShader(VS_TERRAIN_OUTPUT input) : SV_TARGET
     if (textureType & MATERIAL_DETAIL_ALBEDO_MAP)
         objColors.diffuse += gtxtDetailAlbedoTexture.Sample(gssWrap, input.uv2);
 	
-    return CalculateLight2(input.positionW, input.normal, objColors);
+    PS_OUTPUT output;
+    output.color = CalculateLight2(input.positionW, input.normal, objColors);
+    output.zDepth = distance(input.positionW, cameraPosition) / 2000.f;
+    
+    return output;
 } 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -271,7 +292,7 @@ void BillBoardGeometryShader(point VS_BILLBOARD_OUTPUT input[1], inout TriangleS
     }
 }
 
-float4 BillBoardPixelShader(GS_BILLBOARD_OUTPUT input) : SV_TARGET
+PS_OUTPUT BillBoardPixelShader(GS_BILLBOARD_OUTPUT input)
 {
     OBJColors objColors;
     objColors.diffuse = textureType & MATERIAL_ALBEDO_MAP ? gtxtAlbedoTexture.Sample(gssWrap, input.uv) * materialDiffuse : materialDiffuse;
@@ -292,7 +313,12 @@ float4 BillBoardPixelShader(GS_BILLBOARD_OUTPUT input) : SV_TARGET
     
     if (color.a < 0.1f)
         discard;
-    return color; 
+    
+    PS_OUTPUT output;
+    output.color = color;
+    output.zDepth = distance(input.positionW, cameraPosition) / 2000.f;
+    
+    return output;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -468,14 +494,82 @@ void ParticleDrawGeometryShader(point VS_PARTICLE_OUTPUT input[1], inout Triangl
     }
 }
 
-float4 ParticleDrawPixelShader(GS_PARTICLE_OUTPUT input) : SV_TARGET
+PS_OUTPUT ParticleDrawPixelShader(GS_PARTICLE_OUTPUT input)
 {
     // type을 이용하여 원하는 텍스처를 선택
     float4 color = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
     
     if (color.a < 0.1f)
         discard;
-    return color;
+    
+    PS_OUTPUT output;
+    output.color = color;
+    output.zDepth = distance(input.positionW, cameraPosition) / 2000.f;
+    return output;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MultipleRenderTarget
+
+struct VS_MRT_INPUT
+{
+    float3 position : POSITION;
+    float2 uv : TEXCOORD;
+};
+
+struct VS_MRT_OUTPUT
+{
+    float4 position : SV_POSITION;
+    float2 uv : TEXCOORD;
+};
+
+VS_MRT_OUTPUT MutipleRenderTargetVertexShader(VS_MRT_INPUT input)
+{
+    VS_MRT_OUTPUT output;
+    output.position = float4(input.position, 1.0f);
+    output.uv = input.uv;
+    return output;
+}
+
+[earlydepthstencil]
+#define CLIENT_WIDTH 1920
+#define CLIENT_HEIGHT 1080
+float4 MutipleRenderTargetPixelShader(VS_MRT_OUTPUT input) : SV_TARGET
+{
+    //float1 depth = depthZTexture.Sample(gssWrap, input.uv);
+    //return float4(depth, depth, depth, depth);
+    
+    const float4 outlineColor = float4(0.1f, 0.1f, 0.1f, 1.0f);
+    const float outlineThickness = 2.0f;
+    
+    float width, height;
+    depthZTexture.GetDimensions(width, height);
+    
+    float2 uv;
+    uv.x = lerp(0.0f, width, input.uv.x);
+    uv.y = lerp(0.0f, height, input.uv.y);
+    
+    float2 tx = float2(outlineThickness, 0.0);
+    float2 ty = float2(0.0, outlineThickness);
+    
+    float s00 = depthZTexture[uv - tx - ty].r;
+    float s01 = depthZTexture[uv - ty].r;
+    float s02 = depthZTexture[uv + tx - ty].r;
+    float s10 = depthZTexture[uv - tx].r;
+    float s12 = depthZTexture[uv + tx].r;
+    float s20 = depthZTexture[uv - tx + ty].r;
+    float s21 = depthZTexture[uv + ty].r;
+    float s22 = depthZTexture[uv + tx + ty].r;
+    
+    float sx = s00 + 2.0f * s10 + s20 - s02 - 2.0f * s12 - s22;
+    float sy = s00 + 2.0f * s01 + s02 - s20 - 2.0f * s21 - s22;
+    float dist = abs(sx * sx + sy * sy);
+    
+    if(dist < 0.003f)
+        discard;
+    return float4(0, 0, 0, 1);
+    
 }
 
 
