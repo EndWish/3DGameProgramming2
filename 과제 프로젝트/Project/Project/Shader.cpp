@@ -34,7 +34,7 @@ void ParticleResource::Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<I
 
 	// 업로드 인풋 버퍼 뷰 설정 및 매핑
 	uploadStreamInputBuffer->Map(0, NULL, (void**)&mappedUploadStreamInputBuffer);	// 업로드 버퍼 맵핑
-	uploadStreamInputBuffer->Unmap(0, NULL);	// 업로드 버퍼 맵핑
+	//uploadStreamInputBuffer->Unmap(0, NULL);	// 업로드 버퍼 맵핑
 	uploadStreamInputBufferView.BufferLocation = uploadStreamInputBuffer->GetGPUVirtualAddress();
 	uploadStreamInputBufferView.SizeInBytes = nStride * nMaxParticle;
 	uploadStreamInputBufferView.StrideInBytes = nStride;
@@ -138,9 +138,9 @@ void Shader::RenderAlphaObjects(const ComPtr<ID3D12GraphicsCommandList>& _pComma
 void Shader::AddParticle(const VS_ParticleMappedFormat& _particle) {
 	UINT& nParticle = particleResource.nUploadStreamInputParticle;
 	if (nParticle < particleResource.nMaxParticle) {
-		particleResource.uploadStreamInputBuffer->Map(0, NULL, (void**)&particleResource.mappedUploadStreamInputBuffer);	// 업로드 버퍼 맵핑
+		//particleResource.uploadStreamInputBuffer->Map(0, NULL, (void**)&particleResource.mappedUploadStreamInputBuffer);	// 업로드 버퍼 맵핑
 		memcpy(&particleResource.mappedUploadStreamInputBuffer[nParticle], &_particle, sizeof(VS_ParticleMappedFormat));
-		particleResource.uploadStreamInputBuffer->Unmap(0, NULL);	// 업로드 버퍼 맵핑
+		//particleResource.uploadStreamInputBuffer->Unmap(0, NULL);	// 업로드 버퍼 맵핑
 		++nParticle;
 		cout << nParticle << "에 새로운 파티클 추가\n";
 	}
@@ -152,7 +152,6 @@ void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLi
 
 	particleResource.readBackBufferFilledSize->Map(0, NULL, (void**)&particleResource.mappedReadBackBufferFilledSize);
 	particleResource.nDefaultStreamOutputParticle += (*particleResource.mappedReadBackBufferFilledSize) / nStride;
-	//cout << "전체 출력해야될 개수 : " << particleResource.nDefaultStreamOutputParticle << "\n";
 	particleResource.readBackBufferFilledSize->Unmap(0, NULL);
 
 	//5. defaultDrawBuffer를 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER로 바꾼다.  defaultDrawBuffer를 입력으로 렌더링을 수행한다.
@@ -194,14 +193,7 @@ void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLi
 		_pCommandList->CopyResource(particleResource.readBackBufferFilledSize.Get(), particleResource.defaultBufferFilledSize.Get());
 		SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_STREAM_OUT);
 		
-		//particleResource.readBackBufferFilledSize->Map(0, NULL, (void**)&particleResource.mappedReadBackBufferFilledSize);
 		particleResource.nDefaultStreamOutputParticle += particleResource.nUploadStreamInputParticle;
-		//cout << "새로 추가된 파티클 SO 진행후 개수 : " << (*particleResource.mappedReadBackBufferFilledSize) / nStride << "\n";
-		//particleResource.readBackBufferFilledSize->Unmap(0, NULL);
-
-		//SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_STREAM_OUT, D3D12_RESOURCE_STATE_COPY_DEST);
-		//_pCommandList->CopyResource(particleResource.defaultBufferFilledSize.Get(), particleResource.uploadBufferFilledSize.Get());
-		//SynchronizeResourceTransition(_pCommandList, particleResource.defaultBufferFilledSize.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_STREAM_OUT);
 
 		particleResource.defaultStreamOutputBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress() + nStride * particleResource.nUploadStreamInputParticle;
 		particleResource.defaultStreamOutputBufferView.SizeInBytes = nStride * (particleResource.nMaxParticle - particleResource.nUploadStreamInputParticle);
@@ -837,8 +829,8 @@ MultipleRenderTargetShader::~MultipleRenderTargetShader() {
 D3D12_DEPTH_STENCIL_DESC MultipleRenderTargetShader::CreateDepthStencilState() {
 	D3D12_DEPTH_STENCIL_DESC depthStencilDesc;
 	ZeroMemory(&depthStencilDesc, sizeof(D3D12_DEPTH_STENCIL_DESC));
-	depthStencilDesc.DepthEnable = FALSE;
-	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	depthStencilDesc.DepthEnable = TRUE;
+	depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
 	depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
 	depthStencilDesc.StencilEnable = FALSE;
 	depthStencilDesc.StencilReadMask = 0x00;

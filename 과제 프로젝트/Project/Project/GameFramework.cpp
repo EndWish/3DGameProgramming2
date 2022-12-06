@@ -100,7 +100,8 @@ GameFramework::GameFramework() {
 	// 현재 스왑체인의 후면 버퍼의 인덱스
 	swapChainBufferCurrentIndex = 0;
 	fenceEvent = NULL;
-	//PushScene(make_shared<Scene>());
+
+	optionRenderOutline = 1;
 }
 GameFramework::~GameFramework() {
 
@@ -491,6 +492,10 @@ POINT GameFramework::GetClickedLeftMousePos() const {
 	return clickedLeftMousePos;
 }
 
+int GameFramework::GetOptionRenderOutline() const {
+	return optionRenderOutline;
+}
+
 
 void GameFramework::FrameAdvance() {
 
@@ -509,7 +514,9 @@ void GameFramework::FrameAdvance() {
 	hResult = pCommandList->Reset(pCommandAllocator.Get(), NULL);
 	// 현재 렌더 타겟에 대한 Present가 끝나기를 기다림.  (PRESENT = 프리젠트 상태, RENDER_TARGET = 렌더 타겟 상태
 	SynchronizeResourceTransition(pCommandList, pRenderTargetBuffers[swapChainBufferCurrentIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	SynchronizeResourceTransition(pCommandList, depthZTexture.GetTextureBuffer(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	if (optionRenderOutline != 0) {
+		SynchronizeResourceTransition(pCommandList, depthZTexture.GetTextureBuffer(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	}
 	
 	// 현재 렌더 타겟 뷰의 CPU 주소 계산
 	//D3D12_CPU_DESCRIPTOR_HANDLE rtvCPUDescriptorHandle = pRtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
@@ -543,11 +550,9 @@ void GameFramework::FrameAdvance() {
 		pScenes.top()->Render(pCommandList);
 	}
 
-	SynchronizeResourceTransition(pCommandList, depthZTexture.GetTextureBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
-	if (textureDescriptorHeap && depthZTexture.GetSrvGpuDescriptorHandle().ptr) {
-		pCommandList->SetDescriptorHeaps(1, textureDescriptorHeap.GetAddressOf());
-		pCommandList->SetGraphicsRootDescriptorTable(depthZTexture.GetRootParameterIndex(), depthZTexture.GetSrvGpuDescriptorHandle());
-		Shader::GetShader(SHADER_TYPE::MultipleRanderTarget)->Render(pCommandList);
+	// 모든 오브젝트에 대해서 외곽선 그리기
+	if (optionRenderOutline == 2) {
+		RenderOutlint();
 	}
 	
 	//depthZTexture.
@@ -629,24 +634,45 @@ void GameFramework::ChangeSwapChainState() {
 void GameFramework::ProcessInput() {
 
 	static array<UCHAR, 256> keysBuffers;
+	static array<bool, 256> keysDownStateBuffers;	// 키를 누른상태인지 확인한는 변수, 
+	static array<bool, 256> keysDownBuffers;		// 현재 키가 눌린 순간인지 저장하는 변수
+	static array<bool, 256> keysUpBuffers;		// 현재 키가 눌린 순간인지 저장하는 변수
 	bool processedByScene = false;
 
+	keysDownBuffers.fill(false);
+	keysUpBuffers.fill(false);
 	if (GetKeyboardState((PBYTE)keysBuffers.data())) {	// 키보드로 부터 입력데이터를 받으면
-		if (keysBuffers['F'] & 0xF0) {
+		for (int i = 0; i < 256; ++i) {
+			if ((keysBuffers[i] & 0xF0) && !keysDownStateBuffers[i]) {	// 키를 누르는 순간
+				keysDownStateBuffers[i] = true;
+				keysDownBuffers[i] = true;
+			}
+			else if (!(keysBuffers[i] & 0xF0) && keysDownStateBuffers[i]) {	// 키를 떼는 순간.
+				keysDownStateBuffers[i] = false;
+				keysUpBuffers[i] = true;
+			}
+		}
+		
+		if (keysDownBuffers['F']) {
 			//ChangeSwapChainState();
 		}
 		// 일시정지
-		if (keysBuffers['P'] & 0xF0) {
+		if (keysDownBuffers['P']) {
 			//PushScene(make_shared<Scene>("pause"));
 		}
 		// 재시작
-		if (keysBuffers['R'] & 0xF0) {
+		if (keysDownBuffers['R']) {
 			//PopScene();
+		}
+
+		// 외곽선 그리기
+		if (keysDownBuffers['L']) {
+			optionRenderOutline = (optionRenderOutline + 1) % 3;
 		}
 
 		// 씬의 키보드입력 처리
 		if (!pScenes.empty()) {
-			pScenes.top()->ProcessKeyboardInput(keysBuffers, (float)gameTimer.GetTimeElapsed());
+			pScenes.top()->ProcessKeyboardInput(keysDownStateBuffers, keysDownBuffers, keysUpBuffers, (float)gameTimer.GetTimeElapsed());
 		}
 	}
 
@@ -708,4 +734,14 @@ void GameFramework::UpdateShaderVariables() {
 }
 void GameFramework::SynchronizeRenderTargetBuffer(D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter) {
 	SynchronizeResourceTransition(pCommandList, pRenderTargetBuffers[swapChainBufferCurrentIndex], stateBefore, stateAfter);
+}
+
+void GameFramework::RenderOutlint() {
+	if (textureDescriptorHeap && depthZTexture.GetSrvGpuDescriptorHandle().ptr) {
+		SynchronizeResourceTransition(pCommandList, depthZTexture.GetTextureBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON);
+		pCommandList->SetDescriptorHeaps(1, textureDescriptorHeap.GetAddressOf());
+		pCommandList->SetGraphicsRootDescriptorTable(depthZTexture.GetRootParameterIndex(), depthZTexture.GetSrvGpuDescriptorHandle());
+		Shader::GetShader(SHADER_TYPE::MultipleRanderTarget)->Render(pCommandList);
+
+	}
 }

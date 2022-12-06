@@ -4,8 +4,8 @@
 class Apache : public Helicopter {
 protected:
 	shared_ptr<GameObject> pRotor, pBackRotor[2];
-	float missileMaxCoolTime;
-	float missileCoolTime;
+	float missileMaxCoolTime, missileCoolTime;
+	float missileRainMaxCoolTime, missileRainCoolTime;
 
 public:
 	Apache();
@@ -15,4 +15,5 @@ public:
 	virtual void Animate(float _timeElapsed);
 
 	bool IsCoolDown();
+	bool IsRainCoolDown();
 };

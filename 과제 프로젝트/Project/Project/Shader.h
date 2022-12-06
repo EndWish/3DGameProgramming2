@@ -13,6 +13,7 @@ class BillBoardShader;
 
 #define PARTICLE_TYPE_WRECK		0
 #define PARTICLE_TYPE_SPARK		1
+#define PARTICLE_TYPE_SMOKE		2
 
 struct VS_ParticleMappedFormat {
 	XMFLOAT3 position;

@@ -212,6 +212,16 @@ namespace Vector3 {
 		return(Angle(XMLoadFloat3(&xmf3Vector1), XMLoadFloat3(&xmf3Vector2), betweenNormals));
 	}
 
+	inline XMFLOAT3 RandomUnitVector() {
+		uniform_real_distribution<float> urd{ -1.f, 1.f };
+		XMFLOAT3 randomDir = { urd(rd), urd(rd) , urd(rd) };
+		while (Vector3::Distance2(randomDir) > 1.f) {
+			randomDir = { urd(rd), urd(rd) , urd(rd) };
+		}
+		Vector3::Normalize(randomDir);
+		return randomDir;
+	}
+
 }
 
 namespace Vector4 {
@@ -230,6 +240,13 @@ namespace Vector4 {
 	inline XMFLOAT4 Transform(const XMFLOAT4& _vector, const XMFLOAT4X4& _matrix) {
 		XMFLOAT4 result;
 		XMStoreFloat4(&result, XMVector4Transform(XMLoadFloat4(&_vector), XMLoadFloat4x4(&_matrix)));
+		return result;
+	}
+
+	inline XMFLOAT4 RandomQuaternion() {
+		uniform_real_distribution<float> urd{ 0.f, 360.f };
+		XMFLOAT4 result;
+		XMStoreFloat4(&result, XMQuaternionRotationRollPitchYawFromVector(XMVECTOR{ urd(rd), urd(rd), urd(rd), 0 }));
 		return result;
 	}
 

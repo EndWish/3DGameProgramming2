@@ -7,6 +7,8 @@
 class Player : public Apache {
 private:
 	shared_ptr<Camera> pCamera;
+	int nReloadedMissileRain;
+	float missileRainMaxTerm, missileRainTerm;
 
 public:
 	Player();
@@ -16,7 +18,9 @@ public:
 	shared_ptr<Camera> GetCamera() const;
 
 	virtual void Create();
+	virtual void Animate(float _timeElapsed);
 
 	bool TryFireMissile();
+	bool TryFireMissileRain();
 };
 

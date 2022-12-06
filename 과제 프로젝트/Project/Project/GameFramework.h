@@ -84,7 +84,8 @@ private:
 	bool leftMouseDrag;
 	POINT clickedLeftMousePos;
 
-
+	// 외곽선 렌더링하기 옵션
+	int optionRenderOutline;
 
 // 생성, 소멸자
 public:
@@ -107,6 +108,7 @@ public:
 	shared_ptr<Scene> GetCurrentScene();
 	bool GetLeftMouseDrag() const;
 	POINT GetClickedLeftMousePos() const;
+	int GetOptionRenderOutline() const;
 	
 	void FrameAdvance();
 	void WaitForGpuComplete();			// GPU와 동기화하기 위한 대기
@@ -126,4 +128,8 @@ public:
 	void CreateShaderVariables();
 	void UpdateShaderVariables();
 	void SynchronizeRenderTargetBuffer(D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter);
+
+	// 외곽선 그리기
+	void RenderOutlint();
+
 };

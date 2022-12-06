@@ -118,49 +118,67 @@ PlayScene::~PlayScene() {
 
 }
 
-void PlayScene::ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, float _timeElapsed) {
+void PlayScene::ProcessKeyboardInput(const array<bool, 256>& _keysDownStateBuffers, const array<bool, 256>& _keysDownBuffers, const array<bool, 256>& _keysUpBuffers, float _timeElapsed) {
 	GameFramework& gameFramework = GameFramework::Instance();
 	shared_ptr<Player> pPlayer = wpPlayer.lock();
 
 	if (pPlayer) {
 		// 키보드 처리
-		if (_keysBuffers['E'] & 0xF0) {
-			VS_ParticleMappedFormat newParticle;
-			newParticle.boardSize = XMFLOAT2(10, 10);
-			newParticle.lifetime = 1.f;
-			newParticle.position = Vector3::Add(pPlayer->GetWorldPosition(), pPlayer->GetWorldLookVector(), 50.f);
-			newParticle.type = PARTICLE_TYPE_WRECK;
-			newParticle.velocity = XMFLOAT3(0.f, 5.f, 0.f);
-
-			Shader::AddParticle(newParticle);
+		if (_keysDownBuffers['E']) {
+			pPlayer->TryFireMissileRain();
 		}
-		if (_keysBuffers['Q'] & 0xF0) {
+		if (_keysDownStateBuffers['Q']) {
 			pPlayer->TryFireMissile();
 		}
-		if (_keysBuffers['W'] & 0xF0) {
+		if (_keysDownStateBuffers['W']) {
 			XMFLOAT3 cameraLook = pPlayer->GetCamera()->GetWorldLookVector();
 			pPlayer->MoveHorizontal(cameraLook, _timeElapsed);
 		}
-		if (_keysBuffers['S'] & 0xF0) {
-			XMFLOAT3 cameraBack = pPlayer->GetCamera()->GetWorldLookVector();
-			cameraBack = Vector3::ScalarProduct(cameraBack, -1);
-			pPlayer->MoveHorizontal(cameraBack, _timeElapsed);
+		if (_keysDownStateBuffers['S']) {
+			CAMERA_TYPE cameraType = pPlayer->GetCamera()->GetType();
+			if (cameraType == CAMERA_TYPE::FIRST) {	// 1인칭일 경우
+				pPlayer->MoveHorizontalBack(_timeElapsed);
+			}
+			else {	// 3인칭일 경우
+				XMFLOAT3 cameraBack = pPlayer->GetCamera()->GetWorldLookVector();
+				cameraBack = Vector3::ScalarProduct(cameraBack, -1);
+				pPlayer->MoveHorizontal(cameraBack, _timeElapsed);
+			}
 		}
-		if (_keysBuffers['D'] & 0xF0) {
+		if (_keysDownStateBuffers['D']) {
 			XMFLOAT3 cameraRight = pPlayer->GetCamera()->GetWorldRightVector();
 			pPlayer->MoveHorizontal(cameraRight, _timeElapsed);
 		}
-		if (_keysBuffers['A'] & 0xF0) {
+		if (_keysDownStateBuffers['A']) {
 			XMFLOAT3 cameraLeft = pPlayer->GetCamera()->GetWorldRightVector();
 			cameraLeft = Vector3::ScalarProduct(cameraLeft, -1);
 			pPlayer->MoveHorizontal(cameraLeft, _timeElapsed);
 		}
-		if (_keysBuffers[VK_SPACE] & 0xF0) {
+		if (_keysDownStateBuffers[VK_SPACE]) {
 			pPlayer->MoveVertical(true, _timeElapsed);
 		}
-		if (_keysBuffers[VK_LCONTROL] & 0xF0) {
+		if (_keysDownStateBuffers[VK_LCONTROL]) {
 			pPlayer->MoveVertical(false, _timeElapsed);
 		}
+
+		if (_keysDownBuffers['J']) {
+			shared_ptr<Camera> pCamera = pPlayer->GetCamera();
+			
+			if (pCamera->GetType() == CAMERA_TYPE::FIRST) {	// 1인칭일 경우 3인칭으로 변경
+				pCamera->SetType(CAMERA_TYPE::THIRD, XMFLOAT3(0.f, 0.f, -20.f));
+				cout << "FIRST->THIRD\n";
+			}
+			else {	// 3인칭일 경우 1인칭으로 변경
+				pCamera->SetType(CAMERA_TYPE::FIRST, XMFLOAT3(0.45f, 1.f, 3.f));
+				pCamera->SetLocalRotation(XMFLOAT4(0.f, 0.f, 0.f, 1.f));
+				cout << "THIRD->FIRST\n";
+			}
+			pCamera->UpdateObject();
+		}
+
+		
+
+
 
 		// 마우스 처리
 		float mxDelta = 0.0f, myDelta = 0.0f;
@@ -193,7 +211,7 @@ void PlayScene::ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, floa
 		pPlayer->UpdateObject();
 	}
 	
-	if (_keysBuffers['K'] & 0xF0) {
+	if (_keysDownBuffers['K']) {
 		renderOOBBBox = !renderOOBBBox;
 	}
 }
@@ -246,7 +264,7 @@ void PlayScene::UpdateLightShaderVariables(const ComPtr<ID3D12GraphicsCommandLis
 }
 
 void PlayScene::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
-	// 프레임워크에서 렌더링 전에 루트시그니처를 set
+	GameFramework& gameFramework = GameFramework::Instance();
 	
 	// 카메라 쉐이더 변수 업데이트
 	camera->SetViewPortAndScissorRect(_pCommandList);
@@ -256,6 +274,11 @@ void PlayScene::Render(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
 	UpdateLightShaderVariables(_pCommandList);
 
 	Shader::GetShader(SHADER_TYPE::BASIC)->Render(_pCommandList);
+
+	if (gameFramework.GetOptionRenderOutline() == 1) {
+		gameFramework.RenderOutlint();
+	}
+
 	Shader::GetShader(SHADER_TYPE::BillBoard)->Render(_pCommandList);
 	Shader::GetShader(SHADER_TYPE::Terrain)->Render(_pCommandList);
 

@@ -7,7 +7,12 @@ protected:
 	float speed;
 	float maxSpeed;
 	float lifeTime;
+
+	float smokeGenerateCoolTime, smokeGenerateMaxCoolTime;
+
 	WORLD_OBJ_LAYER targetLayer;
+	int attackType;
+	weak_ptr<GameObject> wpTarget;
 
 public:
 	GunshipMissile(float _speed, float _maxSpeed, float _acceleration);
@@ -16,6 +21,7 @@ public:
 
 	// get set ÇÔ¼ö
 	void SetTargetLayer(WORLD_OBJ_LAYER _layer);
+	void SetAttackType(int _attackType);
 
 	virtual void Animate(float _timeElapsed);
 	virtual void ProcessCollision(float _timeElapsed);

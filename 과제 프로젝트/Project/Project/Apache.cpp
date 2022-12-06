@@ -8,6 +8,9 @@ Apache::Apache() {
 
 	missileMaxCoolTime = 1.f;
 	missileCoolTime = 0.f;
+	missileRainMaxCoolTime = 5.f;
+	missileRainCoolTime = 0.f;
+
 }
 
 Apache::~Apache() {
@@ -33,6 +36,7 @@ void Apache::Create() {
 
 void Apache::Animate(float _timeElapsed) {
 	missileCoolTime -= _timeElapsed;
+	missileRainCoolTime -= _timeElapsed;
 
 	// 날개 회전
 	if (pRotor) {
@@ -56,4 +60,7 @@ void Apache::Animate(float _timeElapsed) {
 
 bool Apache::IsCoolDown() {
 	return missileCoolTime <= 0;
+}
+bool Apache::IsRainCoolDown() {
+	return missileRainCoolTime <= 0;
 }

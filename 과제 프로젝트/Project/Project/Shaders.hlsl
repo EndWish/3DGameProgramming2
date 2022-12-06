@@ -330,9 +330,13 @@ PS_OUTPUT BillBoardPixelShader(GS_BILLBOARD_OUTPUT input)
 
 #define PARTICLE_TYPE_WRECK		0
 #define PARTICLE_TYPE_SPARK		1
+#define PARTICLE_TYPE_SMOKE		2
 
 #define SPARK_LIFETIME 2.f
 #define SPARK_BOARDSIZE float2(8.0, 8.0)
+
+#define SMOKE_LIFETIME 2.f
+#define SMOKE_BOARDSIZE float2(8.0, 8.0)
 
 struct VS_PARTICLE_INPUT
 {
@@ -350,7 +354,7 @@ VS_PARTICLE_INPUT ParticleStreamOutVertexShader(VS_PARTICLE_INPUT input)
 
 void WreckParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream);
 void SparkParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream);
-
+void SmokeParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream);
 
 
 [maxvertexcount(20)] // sizeof(VS_PARTICLE_INPUT) 와 maxvertexcount 를 곱해서 1024바이트를 넘으면 안된다.
@@ -364,6 +368,10 @@ void ParticleStreamOutGeometryShader(point VS_PARTICLE_INPUT input[1], inout Poi
     else if (particle.type == PARTICLE_TYPE_SPARK)
     {
         SparkParticles(particle, outStream);
+    }
+    else if (particle.type == PARTICLE_TYPE_SMOKE)
+    {
+        SmokeParticles(particle, outStream);
     }
         
     
@@ -404,6 +412,18 @@ void SparkParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT
         input.boardSize = SPARK_BOARDSIZE * (input.lifetime / SPARK_LIFETIME);
         input.position += input.velocity * elapsedTime;
         input.velocity.y += -GRAVITY * elapsedTime; // 중력가속도를 시간에 곱해서 y속도에 더해준다.
+        outStream.Append(input);
+    }
+}
+void SmokeParticles(VS_PARTICLE_INPUT input, inout PointStream<VS_PARTICLE_INPUT> outStream)
+{
+     // 수명이 남아 있으면 이동시키고(중력의 영향을 받도록 한다.), 
+    if (input.lifetime > 0.0f)  // 수명이 남아있을 경우
+    {
+        input.lifetime -= elapsedTime;
+        input.boardSize = SMOKE_BOARDSIZE * (input.lifetime / SMOKE_LIFETIME);
+        input.position += input.velocity * elapsedTime;
+        input.velocity.y += (GRAVITY * 0.5f) * elapsedTime; // 중력가속도의 절반 만큼의 속도로 상승
         outStream.Append(input);
     }
 }
@@ -532,7 +552,7 @@ VS_MRT_OUTPUT MutipleRenderTargetVertexShader(VS_MRT_INPUT input)
     return output;
 }
 
-[earlydepthstencil]
+//[earlydepthstencil]
 #define CLIENT_WIDTH 1920
 #define CLIENT_HEIGHT 1080
 float4 MutipleRenderTargetPixelShader(VS_MRT_OUTPUT input) : SV_TARGET

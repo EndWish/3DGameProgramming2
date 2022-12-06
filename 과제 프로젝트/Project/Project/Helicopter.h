@@ -14,6 +14,7 @@ public:
 
 	virtual void MoveHorizontal(XMFLOAT3 _dir, float _timeElapsed);
 	virtual void MoveVertical(bool _up, float _timeElapsed);
+	virtual void MoveHorizontalBack(float _timeElapsed);
 	virtual void Animate(float _timeElapsed);
 };
 

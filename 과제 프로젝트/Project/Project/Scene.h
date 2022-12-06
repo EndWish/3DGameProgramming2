@@ -11,7 +11,7 @@ public:
 
 public:
 	virtual void Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) = 0;
-	virtual void ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, float _timeElapsed) = 0;
+	virtual void ProcessKeyboardInput(const array<bool, 256>& _keysDownStateBuffers, const array<bool, 256>& _keysDownBuffers, const array<bool, 256>& _keysUpBuffers, float _timeElapsed) = 0;
 	virtual void AnimateObjects(float _timeElapsed) = 0;
 	virtual void ProcessCollision(float _timeElapsed) = 0;
 	virtual void EraseNullptrElements() = 0;
@@ -45,7 +45,7 @@ public:
 public:
 	void LoadObjects(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList);
 	void Init(const ComPtr<ID3D12Device>& _pDevice, const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) final;
-	void ProcessKeyboardInput(const array<UCHAR, 256>& _keysBuffers, float _timeElapsed) final;
+	void ProcessKeyboardInput(const array<bool, 256>& _keysDownStateBuffers, const array<bool, 256>& keysDownBuffers, const array<bool, 256>& keysUpBuffers, float _timeElapsed) final;
 	void AnimateObjects(float _timeElapsed) final;
 	void ProcessCollision(float _timeElapsed) final;
 	void EraseNullptrElements() final;

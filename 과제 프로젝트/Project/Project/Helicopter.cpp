@@ -39,6 +39,10 @@ void Helicopter::MoveVertical(bool _up, float _timeElapsed) {
 	
 }
 
+void Helicopter::MoveHorizontalBack(float _timeElapsed) {
+	MoveFront(-hSpeed * _timeElapsed);
+}
+
 void Helicopter::Animate(float _timeElapsed) {
 	// 맵 끝과 충돌 체크
 	shared_ptr<GameObject> pRootParent = GetRootParent();
