@@ -91,7 +91,6 @@ void ParticleResource::ReadFilledSize(const ComPtr<ID3D12GraphicsCommandList>& _
 
 	//readBackBufferFilledSize->Map(0, NULL, (void**)&mappedReadBackBufferFilledSize);
 	nDefaultStreamOutputParticle += (*mappedReadBackBufferFilledSize) / nStride;
-	cout << "파티클이 써진 개수 : " << nDefaultStreamOutputParticle << "\n";
 	//readBackBufferFilledSize->Unmap(0, NULL);
 }
 
@@ -142,7 +141,6 @@ void Shader::AddParticle(const VS_ParticleMappedFormat& _particle) {
 		memcpy(&particleResource.mappedUploadStreamInputBuffer[nParticle], &_particle, sizeof(VS_ParticleMappedFormat));
 		//particleResource.uploadStreamInputBuffer->Unmap(0, NULL);	// 업로드 버퍼 맵핑
 		++nParticle;
-		cout << nParticle << "에 새로운 파티클 추가\n";
 	}
 }
 void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandList) {
@@ -165,7 +163,6 @@ void Shader::RenderParticle(const ComPtr<ID3D12GraphicsCommandList>& _pCommandLi
 
 
 		swap(particleResource.defaultDrawBuffer, particleResource.defaultStreamInputBuffer);
-		//cout << particleResource.nDefaultStreamInputParticle << " = " << particleResource.nDefaultStreamOutputParticle << "\n";
 		particleResource.nDefaultStreamInputParticle = particleResource.nDefaultStreamOutputParticle;	// 이번에 출력개수가 다음의 입력개수가 된다.
 		particleResource.defaultStreamInputBufferView.BufferLocation = particleResource.defaultStreamInputBuffer->GetGPUVirtualAddress();
 		particleResource.defaultDrawBufferView.BufferLocation = particleResource.defaultDrawBuffer->GetGPUVirtualAddress();

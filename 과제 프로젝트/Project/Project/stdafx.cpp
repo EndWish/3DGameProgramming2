@@ -177,11 +177,6 @@ ComPtr<ID3D12Resource> CreateTexture2DResource(const ComPtr<ID3D12Device>& _pDev
 	d3dTextureResourceDesc.Flags = _resourceFlags;
 
 	HRESULT hResult = _pDevice->CreateCommittedResource(&d3dHeapPropertiesDesc, D3D12_HEAP_FLAG_NONE, &d3dTextureResourceDesc, _resourceStates, pd3dClearValue, __uuidof(ID3D12Resource), (void**)pd3dTexture.GetAddressOf());
-	if (hResult != S_OK)
-		cout << "리소스 생성 오류\n";
-
-	if (pd3dTexture)
-		cout << "텍스처 리소스는 만들어 졌다.\n";
 
 	return(pd3dTexture);
 }

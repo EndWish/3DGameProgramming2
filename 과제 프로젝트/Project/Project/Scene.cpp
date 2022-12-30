@@ -166,12 +166,10 @@ void PlayScene::ProcessKeyboardInput(const array<bool, 256>& _keysDownStateBuffe
 			
 			if (pCamera->GetType() == CAMERA_TYPE::FIRST) {	// 1인칭일 경우 3인칭으로 변경
 				pCamera->SetType(CAMERA_TYPE::THIRD, XMFLOAT3(0.f, 0.f, -20.f));
-				cout << "FIRST->THIRD\n";
 			}
 			else {	// 3인칭일 경우 1인칭으로 변경
 				pCamera->SetType(CAMERA_TYPE::FIRST, XMFLOAT3(0.45f, 1.f, 3.f));
 				pCamera->SetLocalRotation(XMFLOAT4(0.f, 0.f, 0.f, 1.f));
-				cout << "THIRD->FIRST\n";
 			}
 			pCamera->UpdateObject();
 		}
